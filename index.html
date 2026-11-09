@@ -181,6 +181,26 @@ svg.bar { width: 100%; max-width: 520px; height: auto } .ax { fill: var(--muted)
 .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 12px } .two h4 { margin-top: 8px }
 @media (max-width: 700px) { .two { grid-template-columns: 1fr } }
 .sources { margin-top: 32px; max-width: 80ch }
+/* pop-up calculator */
+.calc-fab { position: fixed; z-index: 20; right: max(16px, calc(env(safe-area-inset-right, 0px) + 16px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); width: 56px; height: 56px; border-radius: 14px; border: 0; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; cursor: pointer; box-shadow: 0 6px 18px rgba(12, 18, 36, .28) }
+.calc-fab svg { width: 28px; height: 28px }
+.calc-fab.on { background: var(--ink); color: var(--bg) }
+.calc-fab:focus-visible { outline: 3px solid var(--hl); outline-offset: 2px }
+.calc { position: fixed; z-index: 21; right: max(16px, calc(env(safe-area-inset-right, 0px) + 16px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 84px); width: min(272px, calc(100vw - 32px)); background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; box-shadow: 0 14px 40px rgba(12, 18, 36, .32); overflow: hidden; font-variant-numeric: tabular-nums }
+.calc-head { display: flex; justify-content: space-between; align-items: center; padding: 4px 4px 4px 12px; cursor: move; touch-action: none; user-select: none; font-family: var(--font-display); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; font-size: .9rem; color: var(--muted); border-bottom: 1px solid var(--rule) }
+.calc-x { all: unset; cursor: pointer; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 6px; font-size: 1.4rem; color: var(--muted) }
+.calc-x:hover { background: var(--bg) } .calc-x:focus-visible { outline: 2px solid var(--accent) }
+.calc-screen { padding: 10px 14px; text-align: right; background: var(--bg); min-height: 76px; display: grid; align-content: end; gap: 2px }
+.calc-expr { font-family: var(--font-mono); font-size: .85rem; color: var(--muted); min-height: 1.3em; overflow-wrap: anywhere }
+.calc-res { font-family: var(--font-mono); font-size: 1.6rem; line-height: 1.2; color: var(--ink); overflow-wrap: anywhere }
+.calc-res.err { color: var(--bad); font-size: 1.05rem }
+.calc-keys { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 10px }
+.calc-keys button { all: unset; box-sizing: border-box; cursor: pointer; height: 44px; display: grid; place-items: center; border-radius: 8px; background: var(--bg); color: var(--ink); font: 500 1.15rem var(--font-mono) }
+.calc-keys button:hover { background: var(--accent-soft) } .calc-keys button:active { transform: translateY(1px) }
+.calc-keys button:focus-visible { outline: 2px solid var(--accent) }
+.calc-keys .op { color: var(--accent); font-weight: 700 } .calc-keys .fn { color: var(--muted) }
+.calc-keys .eq, .calc-keys .eq:hover { background: var(--accent); color: var(--accent-ink) }
+body.has-calc main { padding-bottom: 110px }
 footer { border-top: 1px solid var(--rule); padding-block: 18px; color: var(--muted); font-size: .85rem }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important } }
 </style>

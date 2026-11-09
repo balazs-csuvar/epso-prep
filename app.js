@@ -179,7 +179,7 @@
     const chips = bank.map((x, k) => `<button class="chip ${k === cur.i ? 'cur' : ''} ${progress[x.id] === 1 ? 'ok' : progress[x.id] === 0 ? 'no' : ''}" data-go="${k}" aria-label="Question ${k + 1}">${k + 1}</button>`).join('');
     const intro = {
       abstract: 'Five frames follow hidden rules. Find the rules, then pick the frame that comes sixth. After you answer, step through the rules to see which options each one rules out.',
-      numerical: 'Read the question first, then find only the figures you need. Calculators are allowed in the real test (on screen). Watch units and percentage points.',
+      numerical: 'Read the question first, then find only the figures you need. The real test has an on-screen calculator, so use the calculator button at the bottom right here too. Watch units and percentage points.',
       verbal: 'Judge each statement only against the passage. Exactly one is correct; the others are false or cannot be confirmed from the text.',
     }[kind];
     $('#view').innerHTML = `<section class="practice">
@@ -392,6 +392,128 @@
       });
     }, 1100);
   }
+
+  /* ---------- pop-up calculator (numerical practice + numerical mock) ---------- */
+  const calc = (() => {
+    const ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="2.5" width="15" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="7.5" y="5.5" width="9" height="4" rx="1" fill="currentColor"/><g fill="currentColor"><circle cx="8.5" cy="13" r="1.2"/><circle cx="12" cy="13" r="1.2"/><circle cx="15.5" cy="13" r="1.2"/><circle cx="8.5" cy="17" r="1.2"/><circle cx="12" cy="17" r="1.2"/><circle cx="15.5" cy="17" r="1.2"/></g></svg>';
+    // [label, key, class]
+    const KEYS = [['C', 'clear', 'fn'], ['(', '(', 'fn'], [')', ')', 'fn'], ['÷', '/', 'op'],
+      ['7', '7'], ['8', '8'], ['9', '9'], ['×', '*', 'op'],
+      ['4', '4'], ['5', '5'], ['6', '6'], ['−', '-', 'op'],
+      ['1', '1'], ['2', '2'], ['3', '3'], ['+', '+', 'op'],
+      ['0', '0'], ['.', '.'], ['⌫', 'back', 'fn'], ['=', 'eq', 'eq']];
+    const NAMES = { clear: 'Clear', back: 'Delete last', eq: 'Equals', '/': 'Divide', '*': 'Multiply', '-': 'Minus', '+': 'Plus' };
+
+    const fab = document.createElement('button');
+    fab.type = 'button'; fab.className = 'calc-fab'; fab.hidden = true; fab.innerHTML = ICON;
+    fab.setAttribute('aria-label', 'Calculator'); fab.setAttribute('aria-expanded', 'false'); fab.title = 'Calculator';
+    const panel = document.createElement('div');
+    panel.className = 'calc'; panel.hidden = true; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', 'Calculator');
+    panel.innerHTML = `<div class="calc-head"><span>Calculator</span><button type="button" class="calc-x" data-close aria-label="Close calculator">×</button></div>
+      <div class="calc-screen"><div class="calc-expr"></div><div class="calc-res" aria-live="polite"></div></div>
+      <div class="calc-keys">${KEYS.map(([l, k, c]) => `<button type="button" data-k="${k}" class="${c || ''}" aria-label="${NAMES[k] || l}">${l}</button>`).join('')}</div>`;
+    document.body.append(fab, panel);
+    const exprEl = panel.querySelector('.calc-expr'), resEl = panel.querySelector('.calc-res');
+
+    // 'A' stands for the last result, kept at full precision so chained sums do not lose digits
+    let expr = '', prev = '', justEq = false, error = '', ans = 0;
+    const pretty = (s) => s.replace(/\*/g, '×').replace(/\//g, '÷').replace(/-/g, '−').replace(/A/g, () => fmt(ans));
+    const fmt = (v) => (Math.abs(v) >= 1e15 || (v !== 0 && Math.abs(v) < 1e-9) ? v.toExponential(6) : String(parseFloat(v.toPrecision(12))));
+
+    // Small recursive-descent parser: + − × ÷, brackets, unary minus. No eval().
+    function evaluate(src) {
+      const open = (src.match(/\(/g) || []).length - (src.match(/\)/g) || []).length;
+      const s = src + ')'.repeat(Math.max(0, open));
+      let i = 0;
+      const number = () => { if (s[i] === 'A') { i++; return ans; } const m = /^(\d+\.?\d*|\.\d+)/.exec(s.slice(i)); if (!m) throw 0; i += m[0].length; return parseFloat(m[0]); };
+      const factor = () => {
+        if (s[i] === '-') { i++; return -factor(); }
+        if (s[i] === '(') { i++; const v = sum(); if (s[i] !== ')') throw 0; i++; return v; }
+        return number();
+      };
+      const product = () => { let v = factor(); while (s[i] === '*' || s[i] === '/') { const o = s[i++], w = factor(); v = o === '*' ? v * w : v / w; } return v; };
+      const sum = () => { let v = product(); while (s[i] === '+' || s[i] === '-') { const o = s[i++], w = product(); v = o === '+' ? v + w : v - w; } return v; };
+      try { const v = sum(); return i === s.length ? v : NaN; } catch (e) { return NaN; }
+    }
+
+    function press(k) {
+      error = '';
+      if (k === 'clear') { expr = ''; prev = ''; justEq = false; }
+      else if (k === 'back') { expr = justEq ? '' : expr.slice(0, -1); justEq = false; }
+      else if (k === 'eq') {
+        if (!expr) return render();
+        const v = evaluate(expr);
+        if (!isFinite(v)) error = isNaN(v) ? 'Check the expression' : 'Cannot divide by zero';
+        else { prev = pretty(expr); ans = v; expr = 'A'; justEq = true; }
+      } else if (/[+\-*/]/.test(k)) {
+        justEq = false;
+        if (expr === '' || /\($/.test(expr)) { if (k === '-') expr += '-'; }
+        else if (/[+\-*/]$/.test(expr)) { if (!/[(]-$/.test(expr) && expr !== '-') expr = expr.slice(0, -1) + k; }
+        else expr += k;
+      } else { // digit, '.', '(' or ')'
+        if ((justEq && k !== ')') || /A$/.test(expr)) { expr = ''; }
+        justEq = false;
+        if (k === '.' && /\d*\.\d*$/.test(expr)) return render();
+        if (k === ')' && (expr.match(/\(/g) || []).length <= (expr.match(/\)/g) || []).length) return render();
+        expr += k;
+      }
+      render();
+    }
+    function render() {
+      if (error) { exprEl.textContent = pretty(expr); resEl.textContent = error; resEl.classList.add('err'); return; }
+      resEl.classList.remove('err');
+      if (justEq) { exprEl.textContent = prev + ' ='; resEl.textContent = fmt(ans); return; }
+      resEl.textContent = expr ? pretty(expr) : '0';
+      const v = /[\dA][+\-*/(]|\)/.test(expr) ? evaluate(expr) : NaN;
+      exprEl.textContent = isFinite(v) ? '= ' + fmt(v) : '';
+    }
+    function toggle(open) {
+      panel.hidden = !open; fab.classList.toggle('on', open); fab.setAttribute('aria-expanded', String(open));
+    }
+
+    fab.addEventListener('click', () => toggle(panel.hidden));
+    panel.addEventListener('mousedown', (e) => { if (e.target.closest('.calc-keys button')) e.preventDefault(); }); // keep focus on the question
+    panel.addEventListener('click', (e) => {
+      if (e.target.closest('[data-close]')) return toggle(false);
+      const b = e.target.closest('[data-k]'); if (b) press(b.dataset.k);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (panel.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.target.closest && e.target.closest('input, textarea, select')) return;
+      const map = { Enter: 'eq', '=': 'eq', Backspace: 'back', Delete: 'clear', Escape: 'close', '*': '*', x: '*', X: '*', '/': '/', '+': '+', '-': '-', '.': '.', ',': '.', '(': '(', ')': ')' };
+      const k = /^\d$/.test(e.key) ? e.key : map[e.key];
+      if (!k) return;
+      e.preventDefault();
+      if (k === 'close') toggle(false); else press(k);
+    });
+
+    // drag by the title bar so the calculator never has to cover the data
+    const head = panel.querySelector('.calc-head');
+    head.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button')) return;
+      const r = panel.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top;
+      head.setPointerCapture(e.pointerId);
+      const move = (ev) => {
+        const x = Math.min(Math.max(0, ev.clientX - ox), window.innerWidth - r.width);
+        const y = Math.min(Math.max(0, ev.clientY - oy), window.innerHeight - r.height);
+        Object.assign(panel.style, { left: x + 'px', top: y + 'px', right: 'auto', bottom: 'auto' });
+      };
+      const up = () => { head.removeEventListener('pointermove', move); head.removeEventListener('pointerup', up); head.removeEventListener('pointercancel', up); };
+      head.addEventListener('pointermove', move); head.addEventListener('pointerup', up); head.addEventListener('pointercancel', up);
+    });
+
+    render();
+    return {
+      show(on) { fab.hidden = !on; document.body.classList.toggle('has-calc', on); if (!on) toggle(false); },
+      evaluate,
+    };
+  })();
+  window.EPSOCalc = calc;
+  function updateCalc() {
+    const h = location.hash, v = $('#view');
+    calc.show(h === '#numerical' || (h === '#exam' && !!exam && exam.kind === 'numerical' && !!v.querySelector('.exam, .review')));
+  }
+  new MutationObserver(updateCalc).observe($('#view'), { childList: true });
 
   /* ---------- router ---------- */
   function route() {
