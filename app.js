@@ -151,32 +151,36 @@
     }).join('')}</div>`;
   }
 
+  const levelTag = (q) => (q.level === 'Hard' ? `<div class="qhead lone"><span class="tag lvl-Hard">Hard</span></div>` : '');
   function renderQuestion(kind, q, st) {
     if (kind === 'abstract') {
-      return `<div class="qhead"><span class="tag">${q.level}</span>${q.family.map((f) => `<span class="fam">${esc(f)}</span>`).join('')}<label class="gridtog"><input type="checkbox" id="grid-${q.id}" ${st.grid ? 'checked' : ''} data-grid> Show 3×3 grid</label></div>
+      return `<div class="qhead"><span class="tag lvl-${q.level}">${q.level}</span>${q.family.map((f) => `<span class="fam">${esc(f)}</span>`).join('')}<label class="gridtog"><input type="checkbox" id="grid-${q.id}" ${st.grid ? 'checked' : ''} data-grid> Show 3×3 grid</label></div>
         <p class="stem">Which figure comes next in the series?</p>
         ${abstractStimulus(q, st)}
         ${abstractOptions(q, st)}
         ${st.done && st.showExplain ? abstractExplain(q, st) : ''}`;
     }
     if (kind === 'numerical') {
-      return `${dataView(q.ds)}<p class="stem">${esc(q.q)}</p>${textOptions(q.options, { ...st, ans: q.ans }, L5)}${st.done && st.showExplain ? `<div class="explain"><p>${esc(q.explain)}</p></div>` : ''}`;
+      return `${levelTag(q)}${dataView(q.ds)}<p class="stem">${esc(q.q)}</p>${textOptions(q.options, { ...st, ans: q.ans }, L5)}${st.done && st.showExplain ? `<div class="explain"><p>${esc(q.explain)}</p></div>` : ''}`;
     }
     const p = E.passages[q.p];
-    return `<article class="passage"><h4>${esc(p.title)}</h4><p>${esc(p.text)}</p></article><p class="stem">Which of the following statements is correct?</p>${textOptions(q.opts.map((o) => o[0]), { ...st, ans: q.ans }, 'ABCD', st.done && st.showExplain ? q.opts.map((o) => [o[1], o[2]]) : null)}`;
+    return `${levelTag(q)}<article class="passage"><h4>${esc(p.title)}</h4><p>${esc(p.text)}</p></article><p class="stem">Which of the following statements is correct?</p>${textOptions(q.opts.map((o) => o[0]), { ...st, ans: q.ans }, 'ABCD', st.done && st.showExplain ? q.opts.map((o) => [o[1], o[2]]) : null)}`;
   }
 
   /* ---------- practice mode ---------- */
   const BANK = { abstract: E.abstract, numerical: E.numerical, verbal: E.verbal };
   const NAMES = { abstract: 'Abstract reasoning', numerical: 'Numerical reasoning', verbal: 'Verbal reasoning' };
-  const prac = { abstract: { i: 0 }, numerical: { i: 0 }, verbal: { i: 0 } };
+  const prac = { abstract: { i: 0, hard: false }, numerical: { i: 0, hard: false }, verbal: { i: 0, hard: false } };
   const pstate = {}; // per-question state in practice
   const getSt = (id) => (pstate[id] = pstate[id] || { choice: null, done: false, step: -1, reveal: false, grid: false, showExplain: true });
 
   function renderPractice(kind) {
-    const bank = BANK[kind], cur = prac[kind], q = bank[cur.i], st = getSt(q.id);
+    const cur = prac[kind], all = BANK[kind], bank = cur.hard ? all.filter((x) => x.level === 'Hard') : all;
+    cur.i = Math.min(cur.i, bank.length - 1);
+    const q = bank[cur.i], st = getSt(q.id);
+    const nHard = all.filter((x) => x.level === 'Hard').length;
     const done = bank.filter((x) => progress[x.id] !== undefined).length, right = bank.filter((x) => progress[x.id] === 1).length;
-    const chips = bank.map((x, k) => `<button class="chip ${k === cur.i ? 'cur' : ''} ${progress[x.id] === 1 ? 'ok' : progress[x.id] === 0 ? 'no' : ''}" data-go="${k}" aria-label="Question ${k + 1}">${k + 1}</button>`).join('');
+    const chips = bank.map((x, k) => `<button class="chip ${k === cur.i ? 'cur' : ''} ${progress[x.id] === 1 ? 'ok' : progress[x.id] === 0 ? 'no' : ''}" data-go="${k}" aria-label="Question ${all.indexOf(x) + 1}${x.level === 'Hard' ? ', hard' : ''}">${all.indexOf(x) + 1}${x.level === 'Hard' && !cur.hard ? '<i class="hd" aria-hidden="true"></i>' : ''}</button>`).join('');
     const intro = {
       abstract: 'Five frames follow hidden rules. Find the rules, then pick the frame that comes sixth. After you answer, step through the rules to see which options each one rules out.',
       numerical: 'Read the question first, then find only the figures you need. The real test has an on-screen calculator, so use the calculator button at the bottom right here too. Watch units and percentage points.',
@@ -184,6 +188,7 @@
     }[kind];
     $('#view').innerHTML = `<section class="practice">
       <div class="phead"><div><h2>${NAMES[kind]}</h2><p class="lede">${intro}</p></div><div class="score"><b>${right}</b>/<span>${done}</span> correct<br><span class="muted">${bank.length} questions</span></div></div>
+      <div class="filter" role="group" aria-label="Which questions to show"><button class="seg ${cur.hard ? '' : 'on'}" data-hard="0" aria-pressed="${!cur.hard}">All (${all.length})</button><button class="seg ${cur.hard ? 'on' : ''}" data-hard="1" aria-pressed="${cur.hard}">Hard only (${nHard})</button></div>
       <nav class="chips" aria-label="Questions">${chips}</nav>
       <div class="card" id="qcard">${renderQuestion(kind, q, st)}</div>
       ${st.done ? `<p class="result ${st.choice === q.ans ? 'good' : 'bad'}">${st.choice === q.ans ? 'Correct.' : `Not quite. The answer is ${(kind === 'verbal' ? 'ABCD' : L5)[q.ans]}.`}</p>` : ''}
@@ -204,6 +209,7 @@
       else if (t.dataset.grid !== undefined) { st.grid = t.checked; renderPractice(kind); }
       else if (t.dataset.nav !== undefined) { cur.i = Math.max(0, Math.min(bank.length - 1, cur.i + +t.dataset.nav)); renderPractice(kind); window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' }); }
       else if (t.dataset.go !== undefined) { cur.i = +t.dataset.go; renderPractice(kind); }
+      else if (t.dataset.hard !== undefined) { const h = t.dataset.hard === '1'; if (h !== cur.hard) { const keep = h ? bank.filter((x) => x.level === 'Hard').indexOf(q) : all.indexOf(q); cur.hard = h; cur.i = Math.max(0, keep); renderPractice(kind); } }
       else if (t.dataset.reset !== undefined) { bank.forEach((x) => { delete progress[x.id]; delete pstate[x.id]; }); store.set(progress); renderPractice(kind); }
     };
   }

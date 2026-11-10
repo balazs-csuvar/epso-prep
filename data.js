@@ -320,6 +320,160 @@
           ids: ['sq'], val: (p) => p.s, f: (i) => CORNERS_CW[i % 4] },
       ],
     },
+
+    /* ----- hard set added later ----- */
+    {
+      id: 'A17', level: 'Hard', family: ['Linked movement', 'Rotation (anticlockwise 135°)'],
+      title: 'Spin and orbit',
+      build: (p) => [
+        { id: 'circ', t: 'shape', shape: 'circle', at: C(p.c), r: 11, fill: 'b' },
+        { id: 'sq', t: 'shape', shape: 'square', at: C(p.s), r: 10, fill: 'g' },
+        { id: 'arrow', t: 'arrow', at: C(4), r: 15, rot: p.a },
+      ],
+      seq: (i) => ({ c: CORNERS_CW[i % 4], s: CORNERS_CW[(i + 2) % 4], a: ang(-135 * i) }),
+      options: [{ c: 2, s: 6, a: 45 }, { c: 6, s: 2, a: 45 }, { c: 2, s: 6, a: 315 }, { c: 8, s: 0, a: 45 }, { c: 2, s: 6, a: 90 }],
+      ans: 0,
+      rules: [
+        { text: 'The black circle moves one corner clockwise each frame: top-left → top-right → bottom-right → bottom-left → top-left → top-right.',
+          ids: ['circ'], val: (p) => p.c, f: (i) => CORNERS_CW[i % 4] },
+        { text: 'The grey square always sits in the corner diagonally opposite the circle, so it also moves clockwise: bottom-right → bottom-left → top-left → top-right → bottom-right → bottom-left.',
+          ids: ['sq'], val: (p) => p.s, f: (i) => CORNERS_CW[(i + 2) % 4] },
+        { text: 'The arrow turns 135° ANTICLOCKWISE each frame: up → down-left → right → up-left → down → up-right. Turning 135° clockwise from “down” would give up-left, which is the trap.',
+          ids: ['arrow'], val: (p) => p.a, f: (i) => ang(-135 * i) },
+      ],
+    },
+    {
+      id: 'A18', level: 'Hard', family: ['Counting (sum of previous two)', 'Property rule (odd/even)'],
+      title: 'Adding up',
+      build: (p) => [
+        { id: 'circ', t: 'shape', shape: 'circle', at: [60, 48], r: 26, fill: p.f },
+        { id: 'dots', t: 'dots', at: [60, 100], n: p.n, r: 4, gap: 12, fill: 'b' },
+      ],
+      seq: (i) => { const n = [1, 1, 2, 3, 5, 8][i]; return { n, f: n % 2 ? 'b' : 'w' }; },
+      options: [{ n: 8, f: 'w' }, { n: 7, f: 'b' }, { n: 8, f: 'b' }, { n: 6, f: 'w' }, { n: 9, f: 'b' }],
+      ans: 0,
+      rules: [
+        { text: 'Each dot count is the sum of the two before it: 1, 1, 2 (1+1), 3 (1+2), 5 (2+3) → 3 + 5 = 8. The gaps between counts grow (0, 1, 1, 2), so guessing “+1” or “+2” gives the 6 and 7 traps.',
+          ids: ['dots'], val: (p) => p.n, f: (i) => [1, 1, 2, 3, 5, 8][i] },
+        { text: 'The circle is black when the number of dots is odd and white when it is even. 8 is even, so the circle is white.',
+          ids: ['dots', 'circ'], val: (p) => p.f === (p.n % 2 ? 'b' : 'w'), f: () => true },
+      ],
+    },
+    {
+      id: 'A19', level: 'Hard', family: ['Movement (growing step)', 'Shading (back and forth)'],
+      title: 'Speeding walker',
+      build: (p) => [
+        { id: 'dot', t: 'shape', shape: 'circle', at: C(p.d), r: 9, fill: 'b' },
+        { id: 'sq', t: 'shape', shape: 'square', at: C(4), r: 14, fill: p.f },
+      ],
+      seq: (i) => ({ d: PERIM_CW[((i * (i + 1)) / 2) % 8], f: ['w', 'g', 'b', 'g', 'w', 'g'][i] }),
+      options: [{ d: 3, f: 'g' }, { d: 6, f: 'g' }, { d: 3, f: 'b' }, { d: 3, f: 'w' }, { d: 5, f: 'g' }],
+      ans: 0,
+      rules: [
+        { text: 'The dot walks clockwise around the outer ring, taking one more step each time: top-left → top-middle (1 step) → middle-right (2) → bottom-left (3) → top-right (4). Next it takes 5 steps: middle-right, bottom-right, bottom-middle, bottom-left, middle-left.',
+          ids: ['dot'], val: (p) => p.d, f: (i) => PERIM_CW[((i * (i + 1)) / 2) % 8] },
+        { text: 'The square goes white → grey → black and then comes back: grey, white, grey. It bounces rather than restarting, so frame 6 is grey, not black.',
+          ids: ['sq'], val: (p) => p.f, f: (i) => ['w', 'g', 'b', 'g', 'w', 'g'][i] },
+      ],
+    },
+    {
+      id: 'A20', level: 'Hard', family: ['Instruction (colour sets direction)', 'Counting (+2, −1)'],
+      title: 'Traffic light',
+      build: (p) => [
+        { id: 'sq', t: 'shape', shape: 'square', at: [18, 18], r: 9, fill: p.f },
+        { id: 'arrow', t: 'arrow', at: [60, 58], r: 24, rot: p.a },
+        { id: 'dots', t: 'dots', at: [60, 108], n: p.n, r: 3.5, gap: 10, fill: 'b' },
+      ],
+      seq: (i) => ({ f: ['b', 'w', 'w', 'b', 'w', 'b'][i], a: [0, 90, 0, 270, 0, 270][i], n: Math.floor(i / 2) + 1 + (i % 2 ? 2 : 0) }),
+      options: [{ f: 'b', a: 270, n: 5 }, { f: 'b', a: 90, n: 5 }, { f: 'b', a: 0, n: 5 }, { f: 'b', a: 270, n: 2 }, { f: 'b', a: 270, n: 4 }],
+      ans: 0,
+      rules: [
+        { text: 'The arrow’s turns look random (+90°, −90°, −90°, +90°). The small square is an instruction: if it is black, the arrow turns 90° clockwise in the next frame; if it is white, 90° anticlockwise. Frame 5 has a white square, so the arrow turns from up to left. (The square in frame 6 is the same in every option, so ignore it.)',
+          ids: ['sq', 'arrow'], val: (p) => p.a, f: (i, s) => (i === 0 ? s[0].a : ang(s[i - 1].a + (s[i - 1].f === 'b' ? 90 : -90))) },
+        { text: 'The dots go +2, −1, +2, −1: 1, 3, 2, 4, 3 → 5.',
+          ids: ['dots'], val: (p) => p.n, f: (i) => Math.floor(i / 2) + 1 + (i % 2 ? 2 : 0) },
+      ],
+    },
+    {
+      id: 'A21', level: 'Hard', family: ['Interleaved series', 'Rotation (two speeds)'],
+      title: 'Alternating arrows',
+      build: (p) => [
+        { id: 'arrow', t: 'arrow', at: [60, 54], r: 28, rot: p.a },
+        { id: 'dots', t: 'dots', at: [60, 106], n: p.n, r: 4, gap: 12, fill: 'b' },
+      ],
+      seq: (i) => ({ a: i % 2 ? 180 - 45 * ((i - 1) / 2) : 90 * (i / 2), n: i % 2 ? (i + 1) / 2 : 3 }),
+      options: [{ a: 90, n: 3 }, { a: 270, n: 3 }, { a: 135, n: 3 }, { a: 90, n: 4 }, { a: 90, n: 2 }],
+      ans: 0,
+      rules: [
+        { text: 'Split the strip into two series. Frames 1, 3, 5 always have 3 dots. Frames 2, 4, 6 count 1, 2 → 3 dots.',
+          ids: ['dots'], val: (p) => p.n, f: (i) => (i % 2 ? (i + 1) / 2 : 3) },
+        { text: 'In frames 1, 3, 5 the arrow turns 90° clockwise (up, right, down). In frames 2, 4, 6 it turns 45° ANTICLOCKWISE: down → down-right → right. Continuing the odd series instead gives “left”, the trap.',
+          ids: ['arrow'], val: (p) => p.a, f: (i) => (i % 2 ? 180 - 45 * ((i - 1) / 2) : 90 * (i / 2)) },
+      ],
+    },
+    {
+      id: 'A22', level: 'Hard', family: ['Counting (two counts)', 'Random positions (distractor)'],
+      title: 'Crowd count',
+      build: (p) => p.items.map(([cell, f], k) => ({ id: 'c' + k, t: 'shape', shape: 'circle', at: C(cell), r: 11, fill: f })),
+      seq: (i) => ({ items: [
+        [[0, 'b'], [4, 'w'], [8, 'w']],
+        [[1, 'w'], [3, 'b'], [5, 'w'], [7, 'w']],
+        [[0, 'w'], [2, 'b'], [4, 'w'], [6, 'b'], [8, 'w']],
+        [[0, 'b'], [1, 'w'], [3, 'w'], [5, 'w'], [7, 'b'], [8, 'w']],
+        [[0, 'w'], [1, 'b'], [2, 'w'], [3, 'b'], [5, 'w'], [6, 'w'], [8, 'b']],
+        [[0, 'b'], [1, 'w'], [2, 'w'], [3, 'w'], [5, 'b'], [6, 'w'], [7, 'b'], [8, 'w']],
+      ][i] }),
+      options: [
+        { items: [[0, 'b'], [1, 'w'], [2, 'w'], [3, 'w'], [5, 'b'], [6, 'w'], [7, 'b'], [8, 'w']] },
+        { items: [[0, 'w'], [1, 'b'], [2, 'w'], [3, 'b'], [5, 'w'], [6, 'b'], [7, 'w'], [8, 'b']] },
+        { items: [[0, 'b'], [2, 'w'], [3, 'w'], [4, 'b'], [6, 'w'], [7, 'b'], [8, 'w']] },
+        { items: [[0, 'w'], [1, 'w'], [2, 'b'], [3, 'w'], [5, 'w'], [6, 'b'], [7, 'w'], [8, 'w']] },
+        { items: [[0, 'b'], [1, 'w'], [2, 'w'], [3, 'w'], [4, 'w'], [5, 'b'], [6, 'w'], [7, 'b'], [8, 'w']] },
+      ],
+      ans: 0,
+      rules: [
+        { text: 'Ignore where the circles are: their positions change with no pattern. Count them instead. The total rises by one each frame: 3, 4, 5, 6, 7 → 8.',
+          ids: ['c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8'], val: (p) => p.items.length, f: (i) => 3 + i },
+        { text: 'The number of BLACK circles rises by one every second frame: 1, 1, 2, 2, 3 → 3.',
+          ids: ['c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8'], val: (p) => p.items.filter((x) => x[1] === 'b').length, f: (i) => Math.floor(i / 2) + 1 },
+      ],
+    },
+    {
+      id: 'A23', level: 'Hard', family: ['Shading (two directions)', 'Interleaved series'],
+      title: 'Opposite quarters',
+      build: (p) => [
+        { id: 'quad', t: 'quad', fills: p.q.split('') },
+        { id: 'mid', t: 'shape', shape: 'poly', n: p.n, at: [60, 60], r: 15, fill: 'w', rot: p.n === 4 ? 45 : 0 },
+      ],
+      seq: (i) => ({ q: [0, 1, 2, 3].map((j) => (j === i % 4 ? 'b' : j === mod(1 - i, 4) ? 'g' : 'w')).join(''), n: i % 2 ? 4 + (i - 1) / 2 : 3 }),
+      options: [{ q: 'gbww', n: 6 }, { q: 'bgww', n: 6 }, { q: 'gbww', n: 3 }, { q: 'wbgw', n: 6 }, { q: 'gbww', n: 4 }],
+      ans: 0,
+      rules: [
+        { text: 'The black quarter moves clockwise: top-left → top-right → bottom-right → bottom-left → top-left → top-right.',
+          ids: ['quad'], val: (p) => p.q.indexOf('b'), f: (i) => i % 4 },
+        { text: 'The grey quarter moves the OTHER way, anticlockwise: top-right → top-left → bottom-left → bottom-right → top-right → top-left.',
+          ids: ['quad'], val: (p) => p.q.indexOf('g'), f: (i) => mod(1 - i, 4) },
+        { text: 'The centre shape has two series: frames 1, 3, 5 always show a triangle, while frames 2, 4, 6 add a side each time (square, pentagon → hexagon).',
+          ids: ['mid'], val: (p) => p.n, f: (i) => (i % 2 ? 4 + (i - 1) / 2 : 3) },
+      ],
+    },
+    {
+      id: 'A24', level: 'Hard', family: ['Instruction (sides become dots)', 'Property rule (odd/even)'],
+      title: 'Sides to dots',
+      build: (p) => [
+        { id: 'poly', t: 'shape', shape: 'poly', n: p.n, at: [60, 52], r: 30, fill: p.f, rot: p.n === 4 ? 45 : 0 },
+        { id: 'dots', t: 'dots', at: [60, 106], n: p.d, r: 3.5, gap: 10, fill: 'b' },
+      ],
+      seq: (i) => { const n = [5, 3, 6, 4, 5, 4][i]; return { n, d: [2, 5, 3, 6, 4, 5][i], f: n % 2 ? 'w' : 'g' }; },
+      options: [{ n: 4, f: 'g', d: 5 }, { n: 4, f: 'w', d: 5 }, { n: 4, f: 'g', d: 4 }, { n: 4, f: 'g', d: 6 }, { n: 4, f: 'w', d: 4 }],
+      ans: 0,
+      rules: [
+        { text: 'The number of dots copies the number of sides of the shape in the PREVIOUS frame: pentagon → 5 dots, triangle → 3 dots, hexagon → 6, square → 4. Frame 5 shows a pentagon, so frame 6 has 5 dots. (Counting the sides of the shape in the same frame gives the 4-dot trap.)',
+          ids: ['poly', 'dots'], val: (p) => p.d, f: (i, s) => (i === 0 ? s[0].d : s[i - 1].n) },
+        { text: 'Shapes with an even number of sides are grey and shapes with an odd number are white. Every option shows a square (4 sides), so it must be grey.',
+          ids: ['poly'], val: (p) => p.f === (p.n % 2 ? 'w' : 'g'), f: () => true },
+      ],
+    },
   ];
 
   /* ---------- NUMERICAL REASONING ---------- */
@@ -370,6 +524,34 @@
       kind: 'bar',
       labels: ['2020', '2021', '2022', '2023', '2024', '2025'],
       values: [82, 95, 118, 126, 131, 144],
+    },
+
+    gen: {
+      title: 'Electricity generation by source in a member state (TWh)',
+      note: 'Illustrative figures for practice.',
+      kind: 'table',
+      cols: ['Source', '2023', '2025'],
+      rows: [
+        ['Wind', 82, 104],
+        ['Solar', 41, 63],
+        ['Hydro', 24, 21],
+        ['Gas', 96, 71],
+        ['Nuclear', 57, 59],
+        ['Total', 300, 318],
+      ],
+    },
+    staff: {
+      title: 'Staff of an EU agency by function, 2025',
+      note: 'Illustrative figures for practice.',
+      kind: 'table',
+      cols: ['Function', 'Staff', 'Women (%)', 'Average monthly cost per staff member (€)'],
+      rows: [
+        ['Policy', 240, 55, 9800],
+        ['Legal', 80, 65, 10400],
+        ['IT', 150, 30, 9200],
+        ['Finance', 90, 60, 8600],
+        ['Admin', 140, 70, 6900],
+      ],
     },
   };
   const row = (ds, name) => datasets[ds].rows.find((r) => r[0] === name);
@@ -479,8 +661,90 @@
       fmt: (v) => v.toFixed(1),
       explain: '2025 growth = 144 ÷ 131 = 1.0992 (+9.9%). 144 × 1.0992 ≈ 158.3 thousand. Adding the same absolute rise (+13) gives 157.0, the trap.',
     },
+
+    /* ----- hard set added later ----- */
+    {
+      id: 'N13', ds: 'gen', level: 'Hard',
+      q: 'Wind, solar and hydro count as renewable sources. By how many percentage points did the renewable share of total generation change between 2023 and 2025?',
+      options: ['+10.1 pp', '+13.7 pp', '+20.7 pp', '+27.9 pp', '+8.4 pp'],
+      compute: () => { const g = (k) => ['Wind', 'Solar', 'Hydro'].reduce((a, n) => a + row('gen', n)[k], 0); return g(2) / row('gen', 'Total')[2] * 100 - g(1) / row('gen', 'Total')[1] * 100; },
+      fmt: (v) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1) + ' pp',
+      explain: 'Renewables 2023: 82 + 41 + 24 = 147 of 300 = 49.0%. Renewables 2025: 104 + 63 + 21 = 188 of 318 = 59.1%. Change = +10.1 percentage points. 27.9 is the growth of renewable output itself (188 ÷ 147), 20.7 is the relative change of the share (59.1 ÷ 49.0), and 13.7 comes from dividing 188 by the 2023 total.',
+    },
+    {
+      id: 'N14', ds: 'gen', level: 'Hard',
+      q: 'Assume solar generation grew by the same percentage in each year from 2023 to 2025. What was that annual growth rate?',
+      options: ['26.8%', '24.0%', '53.7%', '22.0%', '25.6%'],
+      compute: () => (Math.sqrt(row('gen', 'Solar')[2] / row('gen', 'Solar')[1]) - 1) * 100,
+      fmt: (v) => v.toFixed(1) + '%',
+      explain: 'Over two years solar grew by a factor of 63 ÷ 41 = 1.5366. The annual factor is the square root: √1.5366 = 1.2396, so 24.0% a year. Check: 41 × 1.24 × 1.24 ≈ 63. Halving the total growth (53.7% ÷ 2 = 26.8%) ignores compounding.',
+    },
+    {
+      id: 'N15', ds: 'gen', level: 'Hard',
+      q: 'In 2025 gas plants emitted on average 0.37 tonnes of CO2 per MWh generated. How much CO2 did gas generation emit in 2025? (1 TWh = 1,000,000 MWh)',
+      options: ['263 million t', '2.6 million t', '35.5 million t', '26.3 thousand t', '26.3 million t'],
+      compute: () => row('gen', 'Gas')[2] * 0.37,
+      fmt: (v) => v.toFixed(1) + ' million t',
+      explain: '71 TWh = 71 million MWh. 71 million × 0.37 t = 26.27 million tonnes ≈ 26.3 million t. 35.5 million t uses the 2023 figure (96 TWh); the other options get the units wrong by a factor of 10 or 1,000.',
+    },
+    {
+      id: 'N16', ds: 'gen', level: 'Hard',
+      q: 'In 2026 wind generation is expected to be 15% higher than in 2025 and to make up 40% of total generation. What total generation in 2026 does this imply?',
+      options: ['260.0 TWh', '318.0 TWh', '365.7 TWh', '299.0 TWh', '287.5 TWh'],
+      compute: () => row('gen', 'Wind')[2] * 1.15 / 0.4,
+      fmt: (v) => v.toFixed(1) + ' TWh',
+      explain: 'Wind 2026 = 104 × 1.15 = 119.6 TWh. If that is 40% of the total, the total is 119.6 ÷ 0.40 = 299.0 TWh. Forgetting the 15% growth gives 104 ÷ 0.4 = 260.0; growing the 2025 total by 15% gives 365.7.',
+    },
+    {
+      id: 'N17', ds: 'staff', level: 'Hard',
+      q: 'What percentage of the agency’s staff are women?',
+      options: ['56.0%', '45.6%', '55.0%', '52.4%', '54.4%'],
+      compute: () => { const r = datasets.staff.rows; return r.reduce((a, x) => a + x[1] * x[2] / 100, 0) / r.reduce((a, x) => a + x[1], 0) * 100; },
+      fmt: (v) => v.toFixed(1) + '%',
+      explain: 'Weight each percentage by staff numbers. Women: 132 (Policy) + 52 (Legal) + 45 (IT) + 54 (Finance) + 98 (Admin) = 381 of 700 = 54.4%. A simple average of the five percentages gives 56.0%, which is wrong because the functions differ in size. 45.6% is the share of men.',
+    },
+    {
+      id: 'N18', ds: 'staff', level: 'Hard',
+      q: 'What is the agency’s total staff cost for a full year?',
+      options: ['€6.3m', '€75.4m', '€75.6m', '€62.9m', '€90.8m'],
+      compute: () => datasets.staff.rows.reduce((a, x) => a + x[1] * x[3], 0) * 12,
+      fmt: (v) => '€' + (v / 1e6).toFixed(1) + 'm',
+      explain: 'Monthly cost per function: 240 × 9,800 = 2,352,000; 80 × 10,400 = 832,000; 150 × 9,200 = 1,380,000; 90 × 8,600 = 774,000; 140 × 6,900 = 966,000. Total €6,304,000 a month × 12 = €75.6m. Using the simple average cost (€8,980) × 700 × 12 gives €75.4m, close but wrong; €6.3m is one month only.',
+    },
+    {
+      id: 'N19', ds: 'staff', level: 'Hard',
+      q: 'The agency must cut its total monthly staff cost by at least 5% and will do so only by reducing the number of Admin staff. What is the smallest number of Admin posts it must cut?',
+      options: ['7', '35', '45', '46', '52'],
+      compute: () => String(Math.ceil(datasets.staff.rows.reduce((a, x) => a + x[1] * x[3], 0) * 0.05 / row('staff', 'Admin')[3])),
+      fmt: (v) => v,
+      explain: 'Monthly cost is €6,304,000 (see the previous question); 5% of that is €315,200. Each Admin post costs €6,900, so 315,200 ÷ 6,900 = 45.7 posts. Cutting 45 is not enough, so at least 46. 35 is 5% of all staff and 7 is 5% of Admin staff.',
+    },
+    {
+      id: 'N20', ds: 'staff', level: 'Hard',
+      q: 'If 20 women join the IT function and nobody leaves, what percentage of IT staff will be women?',
+      options: ['43.3%', '50.0%', '38.2%', '32.4%', '41.2%'],
+      compute: () => { const r = row('staff', 'IT'); return (r[1] * r[2] / 100 + 20) / (r[1] + 20) * 100; },
+      fmt: (v) => v.toFixed(1) + '%',
+      explain: 'Women in IT now: 30% of 150 = 45. After 20 join: 65 women out of 170 staff = 38.2%. Dividing by the old total (65 ÷ 150) gives 43.3%; adding 20 percentage points gives 50.0%.',
+    },
+    {
+      id: 'N21', ds: 'ev', level: 'Hard',
+      q: 'In 2025, how much higher, in percentage terms, were Germany’s new electric car registrations per 1,000 inhabitants than France’s?',
+      options: ['74.7%', '30.2%', '21.9%', '43.3%', '47.5%'],
+      compute: () => { const pc = (n) => row('ev', n)[3] / row('ev', n)[4]; return (pc('Germany') / pc('France') - 1) * 100; },
+      fmt: (v) => v.toFixed(1) + '%',
+      explain: 'Germany: 545 ÷ 83.6 = 6.52 per 1,000. France: 312 ÷ 68.6 = 4.55 per 1,000. 6.52 ÷ 4.55 = 1.433, so 43.3% higher. Comparing absolute registrations gives 74.7%; dividing by Germany’s figure instead of France’s gives 30.2%.',
+    },
+    {
+      id: 'N22', ds: 'tram', level: 'Hard',
+      q: 'Assuming the same percentage growth every year, what was the average annual growth rate of daily passengers from 2020 to 2025?',
+      options: ['15.1%', '75.6%', '11.9%', '9.9%', '13.4%'],
+      compute: () => (Math.pow(144 / 82, 1 / 5) - 1) * 100,
+      fmt: (v) => v.toFixed(1) + '%',
+      explain: '2020 to 2025 is 5 years of growth, not 6. Total factor 144 ÷ 82 = 1.756. Annual factor = 1.756^(1/5) = 1.119, so 11.9% a year. Dividing the total growth (75.6%) by 5 gives 15.1%, which ignores compounding; 9.9% is the 2025 growth alone.',
+    },
   ];
-  numerical.forEach((q) => { q.ans = q.options.indexOf(q.fmt(q.compute())); });
+  numerical.forEach((q) => { q.level = q.level || 'Standard'; q.ans = q.options.indexOf(q.fmt(q.compute())); });
 
   /* ---------- VERBAL REASONING ---------- */
   // v: verdict for each option: 'T' true (the answer), 'F' contradicted by the text, 'C' cannot tell from the text.
@@ -495,6 +759,13 @@
     food: { title: 'Household food waste', text: 'Households are responsible for more than half of the food wasted in the EU, according to recent estimates, with the remainder arising in processing, retail, restaurants and primary production. Much household waste is avoidable: food is bought in excessive quantities, stored incorrectly or discarded because of confusion over date labels. “Use by” dates relate to safety and should be respected, whereas “best before” dates indicate quality, meaning food is often still safe to eat after the date has passed. Awareness campaigns have had mixed results. Studies suggest that combining information with practical changes, such as smaller portion sizes or redesigned packaging, tends to be more effective than information alone.' },
     phish: { title: 'Phishing', text: 'Phishing remains one of the most common ways in which attackers gain access to organisations’ systems. Rather than exploiting technical vulnerabilities, phishing relies on persuading people to click a link, open an attachment or disclose credentials. Increasingly, messages are tailored to specific individuals using information gathered from public sources, a practice known as spear phishing, which makes them harder to recognise. Many organisations run simulated phishing exercises to train staff. Evidence on their effectiveness is mixed: click rates often fall after training, but the improvement can fade within months unless exercises are repeated. Technical measures such as multi-factor authentication do not prevent people from clicking malicious links, but they can limit the damage when passwords are stolen.' },
     age: { title: 'An ageing population', text: 'The EU’s population is ageing: the proportion of people aged 65 and over has been rising for decades and is projected to continue increasing, while the working-age population is expected to shrink in many member states. This shift puts pressure on pay-as-you-go pension systems, in which current workers’ contributions finance current pensions. Governments have responded in different ways, including raising the statutory retirement age, linking it to life expectancy, and encouraging supplementary private savings. Higher employment rates among older workers and women can partly offset the effect of demographic change, as can net migration of working-age people, although economists disagree about how large these effects could be.' },
+
+    ai: { title: 'Regulating artificial intelligence', text: 'The EU’s Artificial Intelligence Act classifies AI systems according to the risk they pose. Practices considered to present an unacceptable risk, such as social scoring, are prohibited. High-risk systems, which include certain uses in recruitment, education and the management of critical infrastructure, must meet requirements on data quality, documentation, human oversight and accuracy before they can be placed on the market. Most other systems face few or no new obligations, although providers of some systems, such as chatbots, must ensure that people are informed that they are interacting with a machine. The obligations apply in stages over several years rather than all at once. Industry groups have warned that compliance costs could weigh on smaller firms, while some civil society organisations argue that the exclusion of national security uses leaves significant gaps.' },
+    reuse: { title: 'Reusing wastewater', text: 'Treated urban wastewater can be reused to irrigate crops, a practice that could reduce pressure on rivers and aquifers in drought-prone regions. EU rules that took effect in 2023 set minimum quality requirements for water reused in agricultural irrigation, with stricter standards for food crops eaten raw than for crops that are processed before consumption. Member states may nonetheless decide that reuse is not appropriate in some or all of their river basins, provided they justify this decision. At present only a small fraction of treated wastewater in the EU is reused, and the share varies widely between countries. Cost is one obstacle: additional treatment and distribution infrastructure can make reclaimed water more expensive than abstracting freshwater, particularly where abstraction charges are low.' },
+    ets: { title: 'Emissions trading', text: 'Under the EU Emissions Trading System, a cap is set on the total amount of certain greenhouse gases that covered installations can emit, and the cap is reduced over time. Companies must surrender an allowance for each tonne of CO2-equivalent they emit; they receive or buy allowances and can trade them with one another. A company that emits less than its allowances cover can sell the surplus, while one that emits more must buy additional allowances or face penalties. Because the cap limits total emissions, the price of allowances is determined by supply and demand rather than set directly by the authorities. A market stability reserve adjusts the number of allowances to be auctioned when the surplus in circulation is unusually large or small. Critics argue that the free allocation of allowances to some industries weakens the incentive to cut emissions, whereas those industries contend that it protects them from competitors in countries without similar carbon costs.' },
+    amr: { title: 'Antimicrobial resistance', text: 'Antimicrobial resistance occurs when bacteria, viruses, fungi and parasites change over time and no longer respond to medicines, making infections harder to treat. Although resistance arises naturally, its spread is accelerated by the misuse and overuse of antimicrobials in both human medicine and animal farming. In the EU, the use of antibiotics to promote growth in farm animals has been banned since 2006, and since 2022 their routine preventive use in groups of animals has also been restricted. Developing new antibiotics is scientifically difficult and commercially unattractive, partly because effective new drugs are likely to be held in reserve and used sparingly to slow the emergence of resistance, which limits sales. Proposals to address this include financial rewards for developers that would be paid independently of the volume sold.' },
+    cohesion: { title: 'Cohesion policy regions', text: 'Under EU cohesion policy, regions whose GDP per inhabitant is below 75% of the EU average are classified as less developed and are eligible for the highest rates of EU co-financing. Regions between 75% and 100% of the average are classed as transition regions, and those above 100% as more developed regions. The classification is based on data for a reference period and is fixed for the whole programming period, so a region that grows rapidly keeps its status until the next period begins. Evaluations suggest that cohesion funding has supported growth in many recipient regions, although some studies find that its effect depends strongly on the quality of local institutions.' },
+    clocks: { title: 'Changing the clocks', text: 'Since 2001 the dates on which clocks change between summer time and winter time have been harmonised across the EU. In 2018 the Commission proposed ending the seasonal change after a public consultation in which a large majority of the 4.6 million respondents favoured abolition, although the respondents were not a representative sample of the population and most came from a single member state. The European Parliament supported the proposal in 2019, but member states in the Council have not reached a common position, partly because of concerns that countries might choose different standard times and so fragment the internal market.' },
   };
 
   const verbal = [
@@ -598,8 +869,70 @@
       ['The share of people aged 65 and over has recently begun to fall.', 'F', 'It has been rising for decades and is projected to keep rising.'],
       ['Higher employment among women could partly offset the effect of demographic change.', 'T', 'Stated: higher employment rates among older workers and women “can partly offset” it.'],
       ['All governments have rejected encouraging private pension savings.', 'F', 'Encouraging supplementary private savings is listed as one response.'] ] },
+
+    /* ----- hard set added later ----- */
+    { id: 'V21', p: 'ai', level: 'Hard', opts: [
+      ['Some AI systems may be placed on the market only once requirements on human oversight have been met.', 'T', 'High-risk systems must meet requirements including human oversight before they can be placed on the market.'],
+      ['All obligations under the AI Act took effect on the same date.', 'F', 'They apply “in stages over several years rather than all at once”.'],
+      ['Compliance costs will force many smaller firms out of the market.', 'C', 'Industry groups warned that costs “could weigh on” smaller firms. That is a concern, not a statement that firms will leave the market.'],
+      ['Providers of chatbots have no obligations under the Act.', 'F', 'They must ensure people are informed they are interacting with a machine.'] ] },
+    { id: 'V22', p: 'ai', level: 'Hard', opts: [
+      ['Some critics believe that excluding national security uses leaves gaps.', 'T', 'Some civil society organisations argue exactly this.'],
+      ['Industry groups argue that the national security exclusion leaves significant gaps.', 'C', 'The text attributes this argument to civil society organisations. It says nothing about what industry groups think of the exclusion. Watch who says what.'],
+      ['Most AI systems on the EU market are classified as high-risk.', 'C', 'The text says most other (non-high-risk) systems face few obligations, but gives no figures on how many systems fall into each category.'],
+      ['Social scoring is allowed if it meets the high-risk requirements.', 'F', 'Social scoring is given as an example of a prohibited practice.'] ] },
+    { id: 'V23', p: 'reuse', level: 'Hard', opts: [
+      ['Reclaimed water can cost more than abstracted freshwater, especially where abstraction charges are low.', 'T', 'Stated almost word for word in the last sentence.'],
+      ['The same quality standards apply to reused water whatever crop it irrigates.', 'F', 'Standards are stricter for food crops eaten raw.'],
+      ['Member states must allow water reuse in every river basin.', 'F', 'They may decide reuse is not appropriate in some or all river basins.'],
+      ['Spain reuses a larger share of its treated wastewater than any other member state.', 'C', 'No country is named. The text only says the share “varies widely”. Do not use outside knowledge.'] ] },
+    { id: 'V24', p: 'reuse', level: 'Hard', opts: [
+      ['A member state that rules out reuse in a river basin must give reasons for doing so.', 'T', 'It may do so “provided they justify this decision”.'],
+      ['Most treated wastewater in the EU is discharged into rivers.', 'C', 'Only a small fraction is reused, but the text does not say what happens to the rest.'],
+      ['The EU rules on water reuse for irrigation took effect before 2020.', 'F', 'They took effect in 2023.'],
+      ['Reusing wastewater will end water shortages in drought-prone regions.', 'C', 'The text says reuse “could reduce pressure”. Ending shortages is a much stronger claim that the text neither makes nor rules out.'] ] },
+    { id: 'V25', p: 'ets', level: 'Hard', opts: [
+      ['Authorities do not directly set the price of allowances.', 'T', 'The price is determined by supply and demand “rather than set directly by the authorities”.'],
+      ['The cap on emissions stays the same from year to year.', 'F', 'The cap “is reduced over time”.'],
+      ['The price of allowances has risen steadily since the system began.', 'C', 'Price trends are not mentioned.'],
+      ['A company that emits more than its allowances cover faces no consequences.', 'F', 'It must buy additional allowances or face penalties.'] ] },
+    { id: 'V26', p: 'ets', level: 'Hard', opts: [
+      ['The number of allowances auctioned can change in response to the size of the surplus in circulation.', 'T', 'The market stability reserve adjusts auction volumes when the surplus is unusually large or small.'],
+      ['All allowances are allocated free of charge.', 'F', 'Companies “receive or buy” allowances, and free allocation goes only to “some industries”.'],
+      ['Free allocation has led some industries to increase their emissions.', 'C', 'Critics say it weakens the incentive to cut emissions. A weaker incentive to cut is not the same as an increase.'],
+      ['Industries that receive free allocation admit that it weakens their incentive to cut emissions.', 'C', 'That is the critics’ argument. The industries are only said to argue that free allocation protects them from competitors.'] ] },
+    { id: 'V27', p: 'amr', level: 'Hard', opts: [
+      ['Using antibiotics to make farm animals grow faster has not been permitted in the EU since 2006.', 'T', 'Growth-promoting use “has been banned since 2006”.'],
+      ['Antimicrobial resistance arises only because medicines are misused.', 'F', 'Resistance “arises naturally”; misuse accelerates its spread.'],
+      ['Resistance spreads faster through animal farming than through human medicine.', 'C', 'Both are named as accelerating factors, but they are not compared.'],
+      ['Since 2022, routine preventive use of antibiotics in groups of farm animals has been unrestricted.', 'F', 'Since 2022 such use has been restricted.'] ] },
+    { id: 'V28', p: 'amr', level: 'Hard', opts: [
+      ['One reason new antibiotics may earn little is that they are likely to be used sparingly.', 'T', 'New drugs are likely to be held in reserve and used sparingly, “which limits sales”.'],
+      ['Rewards paid independently of sales volume have been introduced across the EU.', 'C', 'They are described as proposals; whether any have been introduced is not stated.'],
+      ['The text describes developing new antibiotics as scientifically straightforward.', 'F', 'It is described as “scientifically difficult”.'],
+      ['Most resistant infections in the EU are caused by bacteria rather than fungi.', 'C', 'The text lists the organisms but gives no breakdown of infections.'] ] },
+    { id: 'V29', p: 'cohesion', level: 'Hard', opts: [
+      ['A less developed region whose GDP per inhabitant rises above 75% of the EU average during a programming period keeps that status until the period ends.', 'T', 'Classification is fixed for the whole period, so a fast-growing region keeps its status until the next period.'],
+      ['A region at 90% of the EU average is classified as a more developed region.', 'F', 'Between 75% and 100% is a transition region.'],
+      ['Less developed regions receive the largest total amount of cohesion funding.', 'C', 'They are eligible for the highest co-financing RATES. Total amounts received are not mentioned. Rates and totals are different things.'],
+      ['Regional classifications are updated every year.', 'F', 'The classification is fixed for the whole programming period.'] ] },
+    { id: 'V30', p: 'cohesion', level: 'Hard', opts: [
+      ['Some studies suggest that the effect of cohesion funding depends on the quality of local institutions.', 'T', 'Stated in the last sentence.'],
+      ['Transition regions are eligible for higher co-financing rates than less developed regions.', 'F', 'Less developed regions are eligible for the highest rates.'],
+      ['Every region that received cohesion funding grew faster than the EU average.', 'C', 'Evaluations suggest funding supported growth in “many” regions. Nothing is said about growth relative to the EU average.'],
+      ['Most transition regions will become more developed regions in the next programming period.', 'C', 'The text makes no prediction about future classifications.'] ] },
+    { id: 'V31', p: 'clocks', level: 'Hard', opts: [
+      ['The consultation results may not reflect the views of the EU population as a whole.', 'T', 'Respondents “were not a representative sample of the population”.'],
+      ['Member states agreed in 2019 to end the seasonal clock change.', 'F', 'In 2019 the European Parliament supported the proposal; the member states have not reached a common position.'],
+      ['Most respondents to the consultation came from Germany.', 'C', 'The text says most came from “a single member state” but does not name it. Even if you know which country it was, the passage does not say so.'],
+      ['The European Parliament rejected the Commission’s proposal.', 'F', 'Parliament supported it in 2019.'] ] },
+    { id: 'V32', p: 'clocks', level: 'Hard', opts: [
+      ['One concern in the Council is that member states could end up with different standard times.', 'T', 'Stated as one reason member states have not agreed.'],
+      ['The dates of the clock changes currently differ between member states.', 'F', 'They have been harmonised since 2001.'],
+      ['Ending the seasonal change would reduce energy consumption.', 'C', 'Energy is not mentioned.'],
+      ['A minority of consultation respondents favoured ending the clock change.', 'F', 'A large majority favoured abolition.'] ] },
   ];
-  verbal.forEach((q) => { q.ans = q.opts.findIndex((o) => o[1] === 'T'); });
+  verbal.forEach((q) => { q.level = q.level || 'Standard'; q.ans = q.opts.findIndex((o) => o[1] === 'T'); });
 
   // Deterministic shuffle of option order (seeded by question id) so answer letters
   // are spread evenly and cannot be guessed from position.
