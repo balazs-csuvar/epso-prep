@@ -1,11 +1,23 @@
-/* EPSO Reasoning Trainer — rendering and interaction */
+/* EPSO Reasoning Trainer — rendering and interaction (English and Italian) */
 (function () {
   'use strict';
-  const E = window.EPSO;
+  const E = window.EPSO, ITS = window.EPSO_IT, TX = window.EPSO_TX_IT, NI = window.EPSO_NI, STR = window.EPSO_UI;
   const $ = (s, r = document) => r.querySelector(s);
   const L5 = 'ABCDE';
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- language ---------- */
+  let LANG = 'en';
+  const u = (k, ...a) => { const v = STR.UI[LANG][k]; return typeof v === 'function' ? v(...a) : v; };
+  const G = () => STR.GUIDE[LANG];
+  const lvl = (l) => STR.UI[LANG].level[l] || l;
+  const absRule = (q, k) => (LANG === 'it' ? TX.abstract[q.id].rules[k] : q.rules[k].text);
+  const absFam = (q) => (LANG === 'it' ? TX.abstract[q.id].family : q.family);
+  // Italian numerical and verbal questions are written in Italian (it_native.js); abstract figures are shared
+  const passTx = (k) => (LANG === 'it' ? NI.passages[k] : E.passages[k]);
+  const dsOf = (k) => (LANG === 'it' ? NI.datasets[k] : E.datasets[k]);
+  const bankOf = (kind) => (LANG === 'it' && kind !== 'abstract' ? NI[kind] : E[kind]);
 
   /* ---------- storage (optional) ---------- */
   const store = {
@@ -13,6 +25,7 @@
     set(v) { try { localStorage.setItem('epso-trainer-v1', JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
   };
   let progress = store.get(); // { qid: 1 | 0 }
+  const pid = (id) => (LANG === 'it' ? 'it:' + id : id); // Italian practice keeps its own progress
   const mark = (id, ok) => { progress[id] = ok ? 1 : 0; store.set(progress); };
 
   /* ---------- SVG frame renderer ---------- */
@@ -68,6 +81,15 @@
           '<line x1="60" y1="0" x2="60" y2="120" stroke="var(--f-ink)" stroke-width="1.5"/><line x1="0" y1="60" x2="120" y2="60" stroke="var(--f-ink)" stroke-width="1.5"/>';
       }
       case 'bg': return `<rect x="0" y="0" width="120" height="120" fill="${FILL[el.fill]}"/>`;
+      case 'segs': { // line figure on a 3×3 dot grid (Italian-style questions)
+        let o = Object.values(ITS.PT).map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.4" fill="var(--f-guide)"/>`).join('');
+        for (const s of el.s) {
+          const [a, b] = ITS.ENDS[s].map((k) => ITS.PT[k]), m = el.mark && el.mark[s];
+          const col = m === 'b' ? 'var(--f-blue)' : m === 'c' ? 'var(--f-red)' : 'var(--f-ink)';
+          o += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${col}" stroke-width="4.2" stroke-linecap="round"${m === 'c' ? ' stroke-dasharray="7 6"' : ''}/>`;
+        }
+        return o;
+      }
       default: return '';
     }
   }
@@ -90,72 +112,74 @@
     }
     const wholeHL = els.some((el) => (el.t === 'quad' || el.t === 'bg') && hl.includes(el.id));
     const grid = o.grid ? '<g class="grid" stroke="var(--grid)" stroke-width="1" stroke-dasharray="3 3"><line x1="40" y1="0" x2="40" y2="120"/><line x1="80" y1="0" x2="80" y2="120"/><line x1="0" y1="40" x2="120" y2="40"/><line x1="0" y1="80" x2="120" y2="80"/></g>' : '';
-    return `<svg viewBox="0 0 120 120" role="img" aria-label="${esc(o.label || 'figure')}"><rect x="0" y="0" width="120" height="120" fill="var(--f-paper)"/>${back}${grid}${fore}<rect x="1" y="1" width="118" height="118" fill="none" stroke="${wholeHL ? 'var(--hl)' : 'var(--f-ink)'}" stroke-width="${wholeHL ? 6 : 1.6}"/></svg>`;
+    return `<svg viewBox="0 0 120 120" role="img" aria-label="${esc(o.label || u('frame'))}"><rect x="0" y="0" width="120" height="120" fill="var(--f-paper)"/>${back}${grid}${fore}<rect x="1" y="1" width="118" height="118" fill="none" stroke="${wholeHL ? 'var(--hl)' : 'var(--f-ink)'}" stroke-width="${wholeHL ? 6 : 1.6}"/></svg>`;
   }
-  const qmark = '<svg viewBox="0 0 120 120" role="img" aria-label="missing frame"><rect x="1" y="1" width="118" height="118" fill="var(--f-paper)" stroke="var(--f-ink)" stroke-width="1.6" stroke-dasharray="6 5"/><text x="60" y="76" text-anchor="middle" font-size="48" font-family="var(--font-display)" fill="var(--f-ink)">?</text></svg>';
+  const qmark = () => `<svg viewBox="0 0 120 120" role="img" aria-label="${u('missing')}"><rect x="1" y="1" width="118" height="118" fill="var(--f-paper)" stroke="var(--f-ink)" stroke-width="1.6" stroke-dasharray="6 5"/><text x="60" y="76" text-anchor="middle" font-size="48" font-family="var(--font-display)" fill="var(--f-ink)">?</text></svg>`;
 
   /* ---------- abstract question view ---------- */
   function seqOf(q) { return [0, 1, 2, 3, 4, 5].map(q.seq); }
   function elimMap(q) {
     const s = seqOf(q), same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-    return q.rules.map((r) => q.options.map((o, j) => !same(r.val(o), r.f(5, s))));
+    return q.rules.map((r) => q.options.map((o) => !same(r.val(o), r.f(5, s))));
   }
   function abstractStimulus(q, st) {
     const s = seqOf(q);
     const hl = st.step >= 0 ? q.rules[st.step].ids : [];
-    const cells = s.slice(0, 5).map((p, i) => `<figure class="fr"><div class="frame">${frame(q.build(p), { hl, grid: st.grid, label: 'frame ' + (i + 1) })}</div><figcaption>${i + 1}</figcaption></figure>`).join('');
-    const last = st.reveal ? frame(q.build(s[5]), { hl, grid: st.grid, label: 'frame 6' }) : qmark;
+    const cells = s.slice(0, 5).map((p, i) => `<figure class="fr"><div class="frame">${frame(q.build(p), { hl, grid: st.grid, label: u('frame') + ' ' + (i + 1) })}</div><figcaption>${i + 1}</figcaption></figure>`).join('');
+    const last = st.reveal ? frame(q.build(s[5]), { hl, grid: st.grid, label: u('frame') + ' 6' }) : qmark();
     return `<div class="strip">${cells}<figure class="fr next"><div class="frame">${last}</div><figcaption>6</figcaption></figure></div>`;
   }
-  function abstractOptions(q, st, onPick) {
-    const elim = elimMap(q);
-    return `<div class="aopts">${q.options.map((o, j) => {
+  function figOptions(options, st, ans, render, elim) {
+    return `<div class="aopts">${options.map((o, j) => {
       const struck = st.step >= 0 && elim.slice(0, st.step + 1).some((row) => row[j]);
-      const cls = ['aopt', st.choice === j ? 'chosen' : '', st.done && j === q.ans ? 'right' : '', st.done && st.choice === j && j !== q.ans ? 'wrong' : '', struck ? 'struck' : ''].join(' ');
-      return `<button class="${cls}" data-pick="${j}" ${st.done && !onPick ? 'disabled' : ''} aria-label="Option ${L5[j]}"><span class="ol">${L5[j]}</span><span class="frame">${frame(q.build(o), { grid: st.grid, label: 'option ' + L5[j] })}</span></button>`;
+      const cls = ['aopt', st.choice === j ? 'chosen' : '', st.done && j === ans ? 'right' : '', st.done && st.choice === j && j !== ans ? 'wrong' : '', struck ? 'struck' : ''].join(' ');
+      return `<button class="${cls}" data-pick="${j}" ${st.done ? 'disabled' : ''} aria-label="${u('option')} ${L5[j]}"><span class="ol">${L5[j]}</span><span class="frame">${render(o, j)}</span></button>`;
     }).join('')}</div>`;
   }
-  function abstractExplain(q, st) {
-    const elim = elimMap(q);
-    const steps = q.rules.map((r, k) => {
+  const abstractOptions = (q, st) => figOptions(q.options, st, q.ans, (o, j) => frame(q.build(o), { grid: st.grid, label: u('option') + ' ' + L5[j] }), elimMap(q));
+  function ruleSteps(texts, elim, st, ans) {
+    const steps = texts.map((text, k) => {
       const out = elim[k].map((x, j) => (x ? L5[j] : null)).filter(Boolean);
-      return `<li><button class="step ${st.step === k ? 'on' : ''}" data-step="${k}"><span class="sn">Rule ${k + 1}</span><span class="st">${esc(r.text)}</span><span class="se">${out.length ? 'Rules out ' + out.join(', ') : 'Rules out nothing new: every option already obeys it'}</span></button></li>`;
+      return `<li><button class="step ${st.step === k ? 'on' : ''}" data-step="${k}"><span class="sn">${u('rule', k + 1)}</span><span class="st">${esc(text)}</span><span class="se">${out.length ? u('rulesOut', out.join(', ')) : u('nothingNew')}</span></button></li>`;
     }).join('');
-    return `<div class="explain"><p class="hint">Click each rule to highlight what it tracks and cross out the options it rules out.</p><ol class="steps">${steps}</ol><p class="finale">Only <b>${L5[q.ans]}</b> survives every rule.</p></div>`;
+    return `<p class="hint">${u('hint')}</p><ol class="steps">${steps}</ol><p class="finale">${u('finale', L5[ans])}</p>`;
   }
+  const abstractExplain = (q, st) => `<div class="explain">${ruleSteps(q.rules.map((r, k) => absRule(q, k)), elimMap(q), st, q.ans)}</div>`;
 
   /* ---------- numerical view ---------- */
   function dataView(ds) {
-    const d = E.datasets[ds];
+    const d = dsOf(ds), title = d.title, note = d.note;
+    const loc = LANG === 'it' ? 'it-IT' : 'en-GB';
     if (d.kind === 'table') {
-      const fmt = (v) => (typeof v === 'number' ? v.toLocaleString('en-GB', { maximumFractionDigits: 2 }) : esc(v));
-      return `<div class="data"><h4>${esc(d.title)}</h4><div class="tw"><table><thead><tr>${d.cols.map((c) => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${d.rows.map((r) => `<tr class="${r[0] === 'Total' ? 'tot' : ''}">${r.map((v) => `<td>${fmt(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="note">${esc(d.note)}</p></div>`;
+      const fmt = (v) => (typeof v === 'number' ? v.toLocaleString(loc, { maximumFractionDigits: 2 }) : esc(v));
+      return `<div class="data"><h4>${esc(title)}</h4><div class="tw"><table><thead><tr>${d.cols.map((c) => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${d.rows.map((r) => `<tr class="${r[0] === 'Total' || r[0] === 'Totale' ? 'tot' : ''}">${r.map((v) => `<td>${fmt(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="note">${esc(note)}</p></div>`;
     }
     const W = 360, H = 200, pad = { l: 34, r: 10, t: 18, b: 26 }, max = 160;
     const bw = (W - pad.l - pad.r) / d.values.length;
     const y = (v) => pad.t + (H - pad.t - pad.b) * (1 - v / max);
-    const ticks = [0, 40, 80, 120, 160].map((t) => `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y(t)}" y2="${y(t)}" stroke="var(--rule)" stroke-width="1"/><text x="${pad.l - 6}" y="${y(t) + 4}" text-anchor="end" class="ax">${t}</text>`).join('');
+    const ticks = [0, 40, 80, 120, 160].map((v) => `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--rule)" stroke-width="1"/><text x="${pad.l - 6}" y="${y(v) + 4}" text-anchor="end" class="ax">${v}</text>`).join('');
     const bars = d.values.map((v, k) => {
       const x = pad.l + k * bw + bw * 0.18, w = bw * 0.64;
       return `<rect x="${x}" y="${y(v)}" width="${w}" height="${y(0) - y(v)}" fill="var(--accent)" rx="2"/><text x="${x + w / 2}" y="${y(v) - 5}" text-anchor="middle" class="bv">${v}</text><text x="${x + w / 2}" y="${H - 8}" text-anchor="middle" class="ax">${d.labels[k]}</text>`;
     }).join('');
-    return `<div class="data"><h4>${esc(d.title)}</h4><div class="tw"><svg class="bar" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(d.title)}">${ticks}${bars}</svg></div><p class="note">${esc(d.note)}</p></div>`;
+    return `<div class="data"><h4>${esc(title)}</h4><div class="tw"><svg class="bar" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(title)}">${ticks}${bars}</svg></div><p class="note">${esc(note)}</p></div>`;
   }
 
   /* ---------- generic question card ---------- */
   function textOptions(opts, st, letters, verdicts) {
+    const V = STR.UI[LANG].verdict;
     return `<div class="topts">${opts.map((o, j) => {
       const cls = ['topt', st.choice === j ? 'chosen' : '', st.done && j === st.ans ? 'right' : '', st.done && st.choice === j && j !== st.ans ? 'wrong' : ''].join(' ');
-      const v = st.done && verdicts ? `<span class="verdict v-${verdicts[j][0]}">${{ T: 'True', F: 'False', C: 'Cannot tell' }[verdicts[j][0]]}</span><span class="why">${esc(verdicts[j][1])}</span>` : '';
+      const v = st.done && verdicts ? `<span class="verdict v-${verdicts[j][0]}">${V[verdicts[j][0]]}</span><span class="why">${esc(verdicts[j][1])}</span>` : '';
       return `<button class="${cls}" data-pick="${j}" ${st.done ? 'disabled' : ''}><span class="ol">${letters[j]}</span><span class="ot">${esc(o)}${v ? `<span class="vv">${v}</span>` : ''}</span></button>`;
     }).join('')}</div>`;
   }
 
-  const levelTag = (q) => (q.level === 'Hard' ? `<div class="qhead lone"><span class="tag lvl-Hard">Hard</span></div>` : '');
+  const levelTag = (q) => (q.level === 'Hard' ? `<div class="qhead lone"><span class="tag lvl-Hard">${lvl('Hard')}</span></div>` : '');
   function renderQuestion(kind, q, st) {
     if (kind === 'abstract') {
-      return `<div class="qhead"><span class="tag lvl-${q.level}">${q.level}</span>${q.family.map((f) => `<span class="fam">${esc(f)}</span>`).join('')}<label class="gridtog"><input type="checkbox" id="grid-${q.id}" ${st.grid ? 'checked' : ''} data-grid> Show 3×3 grid</label></div>
-        <p class="stem">Which figure comes next in the series?</p>
+      return `<div class="qhead"><span class="tag lvl-${q.level}">${lvl(q.level)}</span>${absFam(q).map((f) => `<span class="fam">${esc(f)}</span>`).join('')}<label class="gridtog"><input type="checkbox" id="grid-${q.id}" ${st.grid ? 'checked' : ''} data-grid> ${u('grid')}</label></div>
+        <p class="stem">${u('stemAbs')}</p>
         ${abstractStimulus(q, st)}
         ${abstractOptions(q, st)}
         ${st.done && st.showExplain ? abstractExplain(q, st) : ''}`;
@@ -163,223 +187,194 @@
     if (kind === 'numerical') {
       return `${levelTag(q)}${dataView(q.ds)}<p class="stem">${esc(q.q)}</p>${textOptions(q.options, { ...st, ans: q.ans }, L5)}${st.done && st.showExplain ? `<div class="explain"><p>${esc(q.explain)}</p></div>` : ''}`;
     }
-    const p = E.passages[q.p];
-    return `${levelTag(q)}<article class="passage"><h4>${esc(p.title)}</h4><p>${esc(p.text)}</p></article><p class="stem">Which of the following statements is correct?</p>${textOptions(q.opts.map((o) => o[0]), { ...st, ans: q.ans }, 'ABCD', st.done && st.showExplain ? q.opts.map((o) => [o[1], o[2]]) : null)}`;
+    const p = passTx(q.p);
+    return `${levelTag(q)}<article class="passage" lang="${LANG}"><h4>${esc(p.title)}</h4><p>${esc(p.text)}</p></article><p class="stem">${u('stemVerb')}</p>${textOptions(q.opts.map((o) => o[0]), { ...st, ans: q.ans }, 'ABCD', st.done && st.showExplain ? q.opts.map((o) => [o[1], o[2]]) : null)}`;
   }
 
+  /* ---------- routes ---------- */
+  const ROUTES = {
+    guide: { lang: 'en', view: 'guide' }, abstract: { lang: 'en', view: 'practice', kind: 'abstract' },
+    numerical: { lang: 'en', view: 'practice', kind: 'numerical' }, verbal: { lang: 'en', view: 'practice', kind: 'verbal' },
+    exam: { lang: 'en', view: 'exam' }, 'italian-abstract': { lang: 'en', view: 'its' },
+    'it-guida': { lang: 'it', view: 'guide' }, 'it-astratto': { lang: 'it', view: 'practice', kind: 'abstract' },
+    'it-numerico': { lang: 'it', view: 'practice', kind: 'numerical' }, 'it-verbale': { lang: 'it', view: 'practice', kind: 'verbal' },
+    'it-simulazione': { lang: 'it', view: 'exam' },
+  };
+  const HASH_IT = { guide: 'it-guida', exam: 'it-simulazione', abstract: 'it-astratto', numerical: 'it-numerico', verbal: 'it-verbale' };
+  const hashFor = (k) => (LANG === 'it' ? HASH_IT[k] : k);
+
   /* ---------- practice mode ---------- */
-  const BANK = { abstract: E.abstract, numerical: E.numerical, verbal: E.verbal };
-  const NAMES = { abstract: 'Abstract reasoning', numerical: 'Numerical reasoning', verbal: 'Verbal reasoning' };
-  const prac = { abstract: { i: 0, hard: false }, numerical: { i: 0, hard: false }, verbal: { i: 0, hard: false } };
+  const prac = { en: {}, it: {} };
+  const pracOf = (kind) => (prac[LANG][kind] = prac[LANG][kind] || { i: 0, hard: false });
   const pstate = {}; // per-question state in practice
   const getSt = (id) => (pstate[id] = pstate[id] || { choice: null, done: false, step: -1, reveal: false, grid: false, showExplain: true });
 
   function renderPractice(kind) {
-    const cur = prac[kind], all = BANK[kind], bank = cur.hard ? all.filter((x) => x.level === 'Hard') : all;
+    const NAME = u('names')[kind];
+    const cur = pracOf(kind), all = bankOf(kind), bank = cur.hard ? all.filter((x) => x.level === 'Hard') : all;
     cur.i = Math.min(cur.i, bank.length - 1);
-    const q = bank[cur.i], st = getSt(q.id);
+    const q = bank[cur.i], st = getSt(pid(q.id));
     const nHard = all.filter((x) => x.level === 'Hard').length;
-    const done = bank.filter((x) => progress[x.id] !== undefined).length, right = bank.filter((x) => progress[x.id] === 1).length;
-    const chips = bank.map((x, k) => `<button class="chip ${k === cur.i ? 'cur' : ''} ${progress[x.id] === 1 ? 'ok' : progress[x.id] === 0 ? 'no' : ''}" data-go="${k}" aria-label="Question ${all.indexOf(x) + 1}${x.level === 'Hard' ? ', hard' : ''}">${all.indexOf(x) + 1}${x.level === 'Hard' && !cur.hard ? '<i class="hd" aria-hidden="true"></i>' : ''}</button>`).join('');
-    const intro = {
-      abstract: 'Five frames follow hidden rules. Find the rules, then pick the frame that comes sixth. After you answer, step through the rules to see which options each one rules out.',
-      numerical: 'Read the question first, then find only the figures you need. The real test has an on-screen calculator, so use the calculator button at the bottom right here too. Watch units and percentage points.',
-      verbal: 'Judge each statement only against the passage. Exactly one is correct; the others are false or cannot be confirmed from the text.',
-    }[kind];
+    const done = bank.filter((x) => progress[pid(x.id)] !== undefined).length, right = bank.filter((x) => progress[pid(x.id)] === 1).length;
+    const chips = bank.map((x, k) => { const pr = progress[pid(x.id)]; return `<button class="chip ${k === cur.i ? 'cur' : ''} ${pr === 1 ? 'ok' : pr === 0 ? 'no' : ''}" data-go="${k}" aria-label="${u('qAria', all.indexOf(x) + 1, x.level === 'Hard')}">${all.indexOf(x) + 1}${x.level === 'Hard' && !cur.hard ? '<i class="hd" aria-hidden="true"></i>' : ''}</button>`; }).join('');
     $('#view').innerHTML = `<section class="practice">
-      <div class="phead"><div><h2>${NAMES[kind]}</h2><p class="lede">${intro}</p></div><div class="score"><b>${right}</b>/<span>${done}</span> correct<br><span class="muted">${bank.length} questions</span></div></div>
-      <div class="filter" role="group" aria-label="Which questions to show"><button class="seg ${cur.hard ? '' : 'on'}" data-hard="0" aria-pressed="${!cur.hard}">All (${all.length})</button><button class="seg ${cur.hard ? 'on' : ''}" data-hard="1" aria-pressed="${cur.hard}">Hard only (${nHard})</button></div>
-      <nav class="chips" aria-label="Questions">${chips}</nav>
+      <div class="phead"><div><h2>${NAME}</h2><p class="lede">${u('intro')[kind]}</p></div><div class="score">${u('score', right, done)}<br><span class="muted">${u('nq', bank.length)}</span></div></div>
+      <div class="filter" role="group" aria-label="${u('filterAria')}"><button class="seg ${cur.hard ? '' : 'on'}" data-hard="0" aria-pressed="${!cur.hard}">${u('all', all.length)}</button><button class="seg ${cur.hard ? 'on' : ''}" data-hard="1" aria-pressed="${cur.hard}">${u('hardOnly', nHard)}</button></div>
+      <nav class="chips" aria-label="${u('filterAria')}">${chips}</nav>
       <div class="card" id="qcard">${renderQuestion(kind, q, st)}</div>
-      ${st.done ? `<p class="result ${st.choice === q.ans ? 'good' : 'bad'}">${st.choice === q.ans ? 'Correct.' : `Not quite. The answer is ${(kind === 'verbal' ? 'ABCD' : L5)[q.ans]}.`}</p>` : ''}
+      ${st.done ? `<p class="result ${st.choice === q.ans ? 'good' : 'bad'}">${st.choice === q.ans ? u('correct') : u('wrong', (kind === 'verbal' ? 'ABCD' : L5)[q.ans])}</p>` : ''}
       <div class="actions">
-        <button class="btn ghost" data-nav="-1" ${cur.i === 0 ? 'disabled' : ''}>Previous</button>
-        ${st.done ? (kind === 'abstract' ? `<button class="btn ghost" data-reveal>${st.reveal ? 'Hide' : 'Show'} frame 6 in the series</button>` : '') : `<button class="btn" data-check ${st.choice === null ? 'disabled' : ''}>Check answer</button>`}
-        <button class="btn ${st.done ? '' : 'ghost'}" data-nav="1" ${cur.i === bank.length - 1 ? 'disabled' : ''}>Next question</button>
+        <button class="btn ghost" data-nav="-1" ${cur.i === 0 ? 'disabled' : ''}>${u('prev')}</button>
+        ${st.done ? (kind === 'abstract' ? `<button class="btn ghost" data-reveal>${u('reveal', st.reveal)}</button>` : '') : `<button class="btn" data-check ${st.choice === null ? 'disabled' : ''}>${u('check')}</button>`}
+        <button class="btn ${st.done ? '' : 'ghost'}" data-nav="1" ${cur.i === bank.length - 1 ? 'disabled' : ''}>${u('next')}</button>
       </div>
-      <p class="reset"><button class="link" data-reset>Clear my ${NAMES[kind].toLowerCase()} progress</button></p>
+      <p class="reset"><button class="link" data-reset>${u('reset', NAME)}</button></p>
     </section>`;
-    const v = $('#view');
-    v.onclick = (e) => {
+    $('#view').onclick = (e) => {
       const t = e.target.closest('button,input'); if (!t) return;
       if (t.dataset.pick !== undefined && !st.done) { st.choice = +t.dataset.pick; renderPractice(kind); }
-      else if (t.dataset.check !== undefined) { st.done = true; st.step = -1; mark(q.id, st.choice === q.ans); renderPractice(kind); }
+      else if (t.dataset.check !== undefined) { st.done = true; st.step = -1; mark(pid(q.id), st.choice === q.ans); renderPractice(kind); }
       else if (t.dataset.step !== undefined) { const k = +t.dataset.step; st.step = st.step === k ? -1 : k; renderPractice(kind); }
       else if (t.dataset.reveal !== undefined) { st.reveal = !st.reveal; renderPractice(kind); }
       else if (t.dataset.grid !== undefined) { st.grid = t.checked; renderPractice(kind); }
       else if (t.dataset.nav !== undefined) { cur.i = Math.max(0, Math.min(bank.length - 1, cur.i + +t.dataset.nav)); renderPractice(kind); window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' }); }
       else if (t.dataset.go !== undefined) { cur.i = +t.dataset.go; renderPractice(kind); }
-      else if (t.dataset.hard !== undefined) { const h = t.dataset.hard === '1'; if (h !== cur.hard) { const keep = h ? bank.filter((x) => x.level === 'Hard').indexOf(q) : all.indexOf(q); cur.hard = h; cur.i = Math.max(0, keep); renderPractice(kind); } }
-      else if (t.dataset.reset !== undefined) { bank.forEach((x) => { delete progress[x.id]; delete pstate[x.id]; }); store.set(progress); renderPractice(kind); }
+      else if (t.dataset.hard !== undefined) { const h = t.dataset.hard === '1'; if (h !== cur.hard) { const keep = h ? all.filter((x) => x.level === 'Hard').indexOf(q) : all.indexOf(q); cur.hard = h; cur.i = Math.max(0, keep); renderPractice(kind); } }
+      else if (t.dataset.reset !== undefined) { bank.forEach((x) => { delete progress[pid(x.id)]; delete pstate[pid(x.id)]; }); store.set(progress); renderPractice(kind); }
     };
   }
 
   /* ---------- mock exam ---------- */
-  const EXAM = {
-    verbal: { n: 20, min: 35 }, numerical: { n: 10, min: 20 }, abstract: { n: 10, min: 10 },
-  };
-  let exam = null, timerId = null;
+  const EXAM = { verbal: { n: 20, min: 35 }, numerical: { n: 10, min: 20 }, abstract: { n: 10, min: 10 } };
+  const exams = { en: null, it: null };
+  let timerId = null;
+  const ex = () => exams[LANG];
   const shuffle = (a) => { a = a.slice(); for (let k = a.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [a[k], a[j]] = [a[j], a[k]]; } return a; };
 
   function renderExamPicker() {
     clearInterval(timerId);
-    $('#view').innerHTML = `<section class="practice"><div class="phead"><div><h2>Timed mock test</h2><p class="lede">Same length and time limit as the EPSO reasoning tests. No feedback until you submit. You can move between questions and flag ones to revisit.</p></div></div>
-      <div class="pick">${Object.entries(EXAM).map(([k, v]) => `<button class="pickcard" data-start="${k}"><span class="pk">${NAMES[k]}</span><span class="pm">${v.n} questions · ${v.min} minutes</span><span class="pp">${k === 'verbal' ? 'Pass mark usually 10/20' : 'Combined pass mark with the other test usually 10/20'}</span></button>`).join('')}</div>
-      <p class="muted small">The abstract and numerical mocks draw a random set from the question bank each time. Always check the pass marks in your own Notice of Competition.</p></section>`;
+    $('#view').innerHTML = `<section class="practice"><div class="phead"><div><h2>${u('mockTitle')}</h2><p class="lede">${u('mockLede')}</p></div></div>
+      <div class="pick">${Object.entries(EXAM).map(([k, v]) => `<button class="pickcard" data-start="${k}"><span class="pk">${u('names')[k]}</span><span class="pm">${u('pickMeta', v.n, v.min)}</span><span class="pp">${k === 'verbal' ? u('passV') : u('passNA')}</span></button>`).join('')}</div>
+      <p class="muted small">${u('mockNote')}</p></section>`;
     $('#view').onclick = (e) => { const t = e.target.closest('[data-start]'); if (t) startExam(t.dataset.start); };
   }
   function startExam(kind) {
     const cfg = EXAM[kind];
-    exam = { kind, qs: shuffle(BANK[kind]).slice(0, cfg.n), i: 0, ans: {}, flag: {}, end: Date.now() + cfg.min * 60000, over: false };
+    exams[LANG] = { kind, qs: shuffle(bankOf(kind)).slice(0, cfg.n), i: 0, ans: {}, flag: {}, end: Date.now() + cfg.min * 60000, over: false };
     clearInterval(timerId);
     timerId = setInterval(tick, 1000);
     renderExam();
   }
   function tick() {
-    if (!exam || exam.over) return clearInterval(timerId);
-    const left = Math.max(0, exam.end - Date.now());
-    const el = $('#clock'); if (el) { el.textContent = fmtTime(left); el.classList.toggle('low', left < 60000); }
+    const x = ex();
+    if (!x || x.over || !$('#clock')) return clearInterval(timerId);
+    const left = Math.max(0, x.end - Date.now());
+    const el = $('#clock'); el.textContent = fmtTime(left); el.classList.toggle('low', left < 60000);
     if (left === 0) finishExam();
   }
-  const fmtTime = (ms) => { const s = Math.ceil(ms / 1000); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
+  const fmtTime = (ms) => { const s = Math.ceil(Math.max(0, ms) / 1000); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
   function renderExam() {
-    const q = exam.qs[exam.i], st = { choice: exam.ans[q.id] ?? null, done: false, step: -1, grid: !!exam.grid, showExplain: false };
-    const nav = exam.qs.map((x, k) => `<button class="chip ${k === exam.i ? 'cur' : ''} ${exam.ans[x.id] !== undefined ? 'answered' : ''} ${exam.flag[x.id] ? 'flag' : ''}" data-go="${k}">${k + 1}</button>`).join('');
-    const answered = Object.keys(exam.ans).length;
+    const x = ex(), q = x.qs[x.i], st = { choice: x.ans[q.id] ?? null, done: false, step: -1, grid: !!x.grid, showExplain: false };
+    const nav = x.qs.map((y, k) => `<button class="chip ${k === x.i ? 'cur' : ''} ${x.ans[y.id] !== undefined ? 'answered' : ''} ${x.flag[y.id] ? 'flag' : ''}" data-go="${k}">${k + 1}</button>`).join('');
+    const answered = Object.keys(x.ans).length;
     $('#view').innerHTML = `<section class="practice exam">
-      <div class="exambar"><span>${NAMES[exam.kind]} · question ${exam.i + 1} of ${exam.qs.length}</span><span class="clock" id="clock">${fmtTime(exam.end - Date.now())}</span></div>
+      <div class="exambar"><span>${u('examBar', u('names')[x.kind], x.i + 1, x.qs.length)}</span><span class="clock" id="clock">${fmtTime(x.end - Date.now())}</span></div>
       <nav class="chips">${nav}</nav>
-      <div class="card">${renderQuestion(exam.kind, q, st)}</div>
-      <div class="actions"><button class="btn ghost" data-nav="-1" ${exam.i === 0 ? 'disabled' : ''}>Previous</button><button class="btn ghost" data-flag>${exam.flag[q.id] ? 'Unflag' : 'Flag for review'}</button><button class="btn ghost" data-nav="1" ${exam.i === exam.qs.length - 1 ? 'disabled' : ''}>Next</button><button class="btn" data-submit>Submit test (${answered}/${exam.qs.length} answered)</button></div>
+      <div class="card">${renderQuestion(x.kind, q, st)}</div>
+      <div class="actions"><button class="btn ghost" data-nav="-1" ${x.i === 0 ? 'disabled' : ''}>${u('prev')}</button><button class="btn ghost" data-flag>${u('flag', x.flag[q.id])}</button><button class="btn ghost" data-nav="1" ${x.i === x.qs.length - 1 ? 'disabled' : ''}>${u('nextShort')}</button><button class="btn" data-submit>${u('submit', answered, x.qs.length)}</button></div>
       <div id="confirm"></div></section>`;
     $('#view').onclick = (e) => {
       const t = e.target.closest('button,input'); if (!t) return;
-      if (t.dataset.grid !== undefined) { exam.grid = t.checked; renderExam(); }
-      else if (t.dataset.pick !== undefined) { exam.ans[q.id] = +t.dataset.pick; renderExam(); }
-      else if (t.dataset.nav !== undefined) { exam.i = Math.max(0, Math.min(exam.qs.length - 1, exam.i + +t.dataset.nav)); renderExam(); }
-      else if (t.dataset.go !== undefined) { exam.i = +t.dataset.go; renderExam(); }
-      else if (t.dataset.flag !== undefined) { exam.flag[q.id] = !exam.flag[q.id]; renderExam(); }
+      if (t.dataset.grid !== undefined) { x.grid = t.checked; renderExam(); }
+      else if (t.dataset.pick !== undefined) { x.ans[q.id] = +t.dataset.pick; renderExam(); }
+      else if (t.dataset.nav !== undefined) { x.i = Math.max(0, Math.min(x.qs.length - 1, x.i + +t.dataset.nav)); renderExam(); }
+      else if (t.dataset.go !== undefined) { x.i = +t.dataset.go; renderExam(); }
+      else if (t.dataset.flag !== undefined) { x.flag[q.id] = !x.flag[q.id]; renderExam(); }
       else if (t.dataset.submit !== undefined) {
-        const missing = exam.qs.length - Object.keys(exam.ans).length;
-        $('#confirm').innerHTML = `<div class="confirm"><p>${missing ? `${missing} question${missing > 1 ? 's are' : ' is'} unanswered. Wrong answers cost nothing in EPSO tests, so guessing is better than leaving blanks.` : 'All questions answered.'} Submit now?</p><button class="btn" data-really>Submit</button> <button class="btn ghost" data-cancel>Keep working</button></div>`;
+        const missing = x.qs.length - Object.keys(x.ans).length;
+        $('#confirm').innerHTML = `<div class="confirm"><p>${u('unanswered', missing)} ${u('submitNow')}</p><button class="btn" data-really>${u('submitBtn')}</button> <button class="btn ghost" data-cancel>${u('keep')}</button></div>`;
       } else if (t.dataset.really !== undefined) finishExam();
       else if (t.dataset.cancel !== undefined) $('#confirm').innerHTML = '';
     };
   }
   function finishExam() {
     clearInterval(timerId);
-    exam.over = true;
-    const score = exam.qs.filter((q) => exam.ans[q.id] === q.ans).length;
-    exam.qs.forEach((q) => { if (exam.ans[q.id] !== undefined) mark(q.id, exam.ans[q.id] === q.ans); });
-    const used = Math.min(EXAM[exam.kind].min * 60000, EXAM[exam.kind].min * 60000 - Math.max(0, exam.end - Date.now()));
-    const half = Math.ceil(exam.qs.length / 2);
-    const letters = exam.kind === 'verbal' ? 'ABCD' : L5;
-    $('#view').innerHTML = `<section class="practice"><div class="phead"><div><h2>Result: ${score} / ${exam.qs.length}</h2><p class="lede">${NAMES[exam.kind]} · time used ${fmtTime(used)}. ${score >= half ? 'At or above half marks, the usual pass threshold.' : 'Below half marks. Review the misses below, then try again.'}</p></div></div>
-      <ol class="review">${exam.qs.map((q, k) => { const a = exam.ans[q.id]; const ok = a === q.ans; return `<li class="${ok ? 'ok' : 'no'}"><button class="rv" data-rv="${k}"><span>Question ${k + 1}</span><span>${a === undefined ? 'no answer' : 'you: ' + letters[a]} · correct: ${letters[q.ans]}</span><span class="rvs">${ok ? 'Correct' : 'Review'}</span></button></li>`; }).join('')}</ol>
+    const x = ex();
+    x.over = true;
+    const NAME = u('names')[x.kind];
+    const score = x.qs.filter((q) => x.ans[q.id] === q.ans).length;
+    x.qs.forEach((q) => { if (x.ans[q.id] !== undefined) mark(pid(q.id), x.ans[q.id] === q.ans); });
+    const total = EXAM[x.kind].min * 60000, used = Math.min(total, total - Math.max(0, x.end - Date.now()));
+    const half = Math.ceil(x.qs.length / 2);
+    const letters = x.kind === 'verbal' ? 'ABCD' : L5;
+    $('#view').innerHTML = `<section class="practice"><div class="phead"><div><h2>${u('result', score, x.qs.length)}</h2><p class="lede">${u('used', NAME, fmtTime(used))} ${score >= half ? u('passOk') : u('passNo')}</p></div></div>
+      <ol class="review">${x.qs.map((q, k) => { const a = x.ans[q.id]; const ok = a === q.ans; return `<li class="${ok ? 'ok' : 'no'}"><button class="rv" data-rv="${k}"><span>${u('rvQ', k + 1)}</span><span>${a === undefined ? u('noAns') : u('you', letters[a])} · ${u('corr', letters[q.ans])}</span><span class="rvs">${ok ? u('rvOk') : u('rvNo')}</span></button></li>`; }).join('')}</ol>
       <div id="rvbox"></div>
-      <div class="actions"><button class="btn" data-again>New ${NAMES[exam.kind].toLowerCase()} mock</button><button class="btn ghost" data-pickt>Choose another test</button></div></section>`;
+      <div class="actions"><button class="btn" data-again>${u('again', NAME)}</button><button class="btn ghost" data-pickt>${u('another')}</button></div></section>`;
+    const showRv = () => { $('#rvbox').innerHTML = `<div class="card">${renderQuestion(x.kind, x.qs[x.rvq], x.rvst)}</div>`; };
     $('#view').onclick = (e) => {
       const t = e.target.closest('button,input'); if (!t) return;
-      if (t.dataset.grid !== undefined && exam.rvst) {
-        exam.rvst.grid = t.checked;
-        $('#rvbox').innerHTML = `<div class="card">${renderQuestion(exam.kind, exam.qs[exam.rvq], exam.rvst)}</div>`;
-      } else if (t.dataset.rv !== undefined) {
-        const q = exam.qs[+t.dataset.rv];
-        const st = exam.rvst && exam.rvst.id === q.id ? exam.rvst : { id: q.id, choice: exam.ans[q.id] ?? null, done: true, step: -1, grid: false, showExplain: true };
-        exam.rvst = st; exam.rvq = +t.dataset.rv;
-        $('#rvbox').innerHTML = `<div class="card">${renderQuestion(exam.kind, q, st)}</div>`;
+      if (t.dataset.grid !== undefined && x.rvst) { x.rvst.grid = t.checked; showRv(); }
+      else if (t.dataset.rv !== undefined) {
+        const q = x.qs[+t.dataset.rv];
+        x.rvst = x.rvst && x.rvst.id === q.id ? x.rvst : { id: q.id, choice: x.ans[q.id] ?? null, done: true, step: -1, grid: false, showExplain: true };
+        x.rvq = +t.dataset.rv; showRv();
         $('#rvbox').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
-      } else if (t.dataset.step !== undefined && exam.rvst) {
-        const k = +t.dataset.step; exam.rvst.step = exam.rvst.step === k ? -1 : k;
-        $('#rvbox').innerHTML = `<div class="card">${renderQuestion(exam.kind, exam.qs[exam.rvq], exam.rvst)}</div>`;
-      } else if (t.dataset.again !== undefined) startExam(exam.kind);
+      } else if (t.dataset.step !== undefined && x.rvst) { const k = +t.dataset.step; x.rvst.step = x.rvst.step === k ? -1 : k; showRv(); }
+      else if (t.dataset.again !== undefined) startExam(x.kind);
       else if (t.dataset.pickt !== undefined) renderExamPicker();
     };
   }
 
   /* ---------- guide ---------- */
   const byId = (id) => E.abstract.find((q) => q.id === id);
-  const FAMILIES = [
-    { name: 'Position and movement', q: 'A4', r: 1, look: 'Picture a 3×3 grid. Does something hop corner to corner, walk around the outer ring, or move along a row? Count how many cells per step, and check the direction.', trap: 'Some elements move only every second frame, and two elements can move in opposite directions or at different speeds.' },
-    { name: 'Rotation', q: 'A2', r: 0, look: 'Follow one end of the shape (the arrow tip). Is the step 45°, 90° or 180°? Clockwise or anticlockwise?', trap: 'Symmetric shapes hide rotation: a line looks the same after 180°, a square after 90°. Check that the answer looks right, not that the angle matches.' },
-    { name: 'Evolving steps', q: 'A7', r: 0, look: 'If the change is not constant, write the differences down: +45°, +90°, +135°… The rule may be in the growth of the step.', trap: 'A constant-step distractor is almost always among the options.' },
-    { name: 'Counting', q: 'A3', r: 0, look: 'Count objects, sides, corners, dots or line crossings. Look for +1, −1, +2 or an alternation like 1, 2, 1, 2.', trap: 'When shapes change without pattern, add up their sides or count all items together.' },
-    { name: 'Shading and colour', q: 'A10', r: 0, look: 'Track one colour (the black quarter) rather than all of them. Is it alternating, cycling through three shades, or moving position?', trap: 'If colour looks random, it may be set by another element (see Instructions).' },
-    { name: 'Reflection', q: 'A5', r: 0, look: 'Ask whether the shape flips left–right (vertical mirror) or upside down (horizontal mirror). Follow a distinctive feature such as a right-angle corner.', trap: 'Flips can alternate between the two mirror lines; a flip and a rotation can look alike, so test both.' },
-    { name: 'Size', q: 'A14', r: 0, look: 'Is something growing, shrinking, or cycling large–medium–small?', trap: 'Size cycles restart; do not continue shrinking past the smallest size seen.' },
-    { name: 'Two series in one', q: 'A15', r: 0, look: 'If frames 1, 3, 5 look alike and 2, 4 look alike, treat them as two separate sequences. The missing frame 6 continues the even series.', trap: 'One distractor usually continues the wrong series.' },
-    { name: 'Instructions', q: 'A6', r: 0, look: 'One element controls another in the NEXT frame: the number of dots sets a colour, an arrow points where a shape will go, a shape travels to a new position.', trap: 'Hardest family. Suspect it when an element changes with no sequence of its own. Elements that are identical in every option can be ignored.' },
-  ];
+  const FAMILY_Q = [['A4', 1], ['A2', 0], ['A7', 0], ['A3', 0], ['A10', 0], ['A5', 0], ['A14', 0], ['A15', 0], ['A6', 0]];
 
   function familyCard(f, k) {
-    const q = byId(f.q), s = seqOf(q), ids = q.rules[f.r].ids;
+    const [qid, r] = FAMILY_Q[k], q = byId(qid), s = seqOf(q), ids = q.rules[r].ids;
     const strip = s.slice(0, 5).map((p) => `<div class="frame mini">${frame(q.build(p), { hl: ids })}</div>`).join('');
-    return `<article class="fam-card"><div class="fam-top"><h4>${esc(f.name)}</h4><div class="flip" data-flip="${k}" aria-hidden="true"><div class="frame">${frame(q.build(s[0]), { hl: ids })}</div><span class="fnum">1</span></div></div>
+    return `<article class="fam-card"><div class="fam-top"><h4>${esc(f[0])}</h4><div class="flip" data-flip="${k}" aria-hidden="true"><div class="frame">${frame(q.build(s[0]), { hl: ids })}</div><span class="fnum">1</span></div></div>
       <div class="ministrip">${strip}</div>
-      <p><b>What to look for.</b> ${esc(f.look)}</p><p class="trap"><b>Trap.</b> ${esc(f.trap)}</p>
-      <button class="link" data-try="${f.q}">Practise this question →</button></article>`;
+      <p><b>${G().look}</b> ${esc(f[1])}</p><p class="trap"><b>${G().trap}</b> ${esc(f[2])}</p>
+      <button class="link" data-try="${qid}">${G().tryIt}</button></article>`;
   }
 
   const WALK = 'A9';
-  let walkStep = -1;
+  const walkStep = { en: -1, it: -1 };
   function renderGuide() {
-    const q = byId(WALK);
-    const st = { choice: q.ans, done: true, step: walkStep, reveal: walkStep >= q.rules.length - 1, grid: true, showExplain: true };
-    const methodSteps = [
-      ['Isolate', 'Pick ONE simple element (a dot, an arrow, a colour). Ignore everything else for now.'],
-      ['Track', 'Follow it across frames 1 to 5 and name its rule: where does it move, how does it turn, how does the count change?'],
-      ['Predict', 'Say what that element must look like in frame 6 before looking at the options.'],
-      ['Eliminate', 'Cross out every option where that element is wrong. Then repeat with the next element until one option is left.'],
-    ];
+    const g = G(), q = byId(WALK), ws = walkStep[LANG];
+    const st = { choice: q.ans, done: true, step: ws, reveal: ws >= q.rules.length - 1, grid: true, showExplain: true };
     $('#view').innerHTML = `<section class="guide">
-      <div class="hero"><p class="eyebrow">EPSO graduate reasoning tests</p><h1>Learn the rules, then beat the clock</h1><p class="lede">Practice for verbal, numerical and abstract reasoning in the EPSO format, with a step-by-step visual method for abstract questions.</p></div>
-
+      <div class="hero"><p class="eyebrow">${g.eyebrow}</p><h1>${g.h1}</h1><p class="lede">${g.lede}</p></div>
       <div class="fmt">
-        <div class="fmt-row"><span class="fk">Verbal</span><span>20 questions</span><span>35 min</span><span class="fp">≈ 1 min 45 s each · usually pass 10/20</span><button class="link" data-goto="verbal">Practise</button></div>
-        <div class="fmt-row"><span class="fk">Numerical</span><span>10 questions</span><span>20 min</span><span class="fp">≈ 2 min each · on-screen calculator</span><button class="link" data-goto="numerical">Practise</button></div>
-        <div class="fmt-row"><span class="fk">Abstract</span><span>10 questions</span><span>10 min</span><span class="fp">≈ 1 min each · 5 frames, 5 options</span><button class="link" data-goto="abstract">Practise</button></div>
-        <p class="muted small">Numerical and abstract usually share a combined pass mark (often 10/20). No marks are lost for wrong answers, so never leave a blank. Formats vary: check your Notice of Competition.</p>
+        ${g.fmt.map((r) => `<div class="fmt-row"><span class="fk">${r[0]}</span><span>${r[1]}</span><span>${r[2]}</span><span class="fp">${r[3]}</span><button class="link" data-goto="${r[4]}">${g.practise}</button></div>`).join('')}
+        <p class="muted small">${g.fmtNote}</p>
       </div>
-
-      <h2 id="anatomy">How an abstract question works</h2>
-      <p class="lede">You see five frames in a row. Each frame is built from a few independent “building blocks”, and each block follows its own rule. Your job is to work out frame 6. Usually two or three rules are in play at once, and each wrong option breaks at least one of them.</p>
-
-      <h2>The four-step method</h2>
-      <div class="method">${methodSteps.map((m, k) => `<div class="mstep"><span class="mn">${k + 1}</span><b>${m[0]}</b><p>${m[1]}</p></div>`).join('')}</div>
-
-      <h3>Worked example: try it step by step</h3>
-      <p class="muted">Grid lines are on to help you see positions. Press each rule in turn: the tracked element lights up in yellow and the options it rules out are crossed out.</p>
+      <h2>${g.anatomyH}</h2>
+      <p class="lede">${g.anatomyP}</p>
+      <h2>${g.methodH}</h2>
+      <div class="method">${g.method.map((m, k) => `<div class="mstep"><span class="mn">${k + 1}</span><b>${m[0]}</b><p>${m[1]}</p></div>`).join('')}</div>
+      <h3>${g.walkH}</h3>
+      <p class="muted">${g.walkP}</p>
       <div class="card walk">${abstractStimulus(q, st)}${abstractOptions(q, st)}${abstractExplain(q, st)}</div>
-
-      <h2>The nine rule families</h2>
-      <p class="lede">Almost every EPSO abstract question combines two to four of these. The yellow marker shows the element to follow; the large frame plays the sequence.</p>
-      <div class="fams">${FAMILIES.map(familyCard).join('')}</div>
-
-      <h2>Under time pressure</h2>
-      <div class="time">
-        <div><span class="tt">0–20 s</span><p>Find one rule and eliminate with it.</p></div>
-        <div><span class="tt">20–45 s</span><p>Add a second (and third) rule only if more than one option is left.</p></div>
-        <div><span class="tt">45–60 s</span><p>Commit. If two options remain, compare just those two: the difference tells you what to check.</p></div>
-      </div>
-      <ul class="tips">
-        <li><b>Check in a fixed order:</b> position → rotation → count → shading → size → shape → instructions.</li>
-        <li><b>Ignore what all options share.</b> If an element is identical in every option, it cannot decide the answer.</li>
-        <li><b>Start with the easiest element</b>, such as a lone dot or the background, not the busiest shape.</li>
-        <li><b>Stuck after 20 seconds?</b> Eliminate what you can, guess among the rest, move on. The last questions are often hardest.</li>
-      </ul>
-
-      <h2>Verbal and numerical: the short version</h2>
+      <h2>${g.famH}</h2>
+      <p class="lede">${g.famP}</p>
+      <div class="fams">${g.families.map(familyCard).join('')}</div>
+      <h2>${g.timeH}</h2>
+      <div class="time">${g.time.map((t) => `<div><span class="tt">${t[0]}</span><p>${t[1]}</p></div>`).join('')}</div>
+      <ul class="tips">${g.tips.map((t) => `<li>${t}</li>`).join('')}</ul>
+      <h2>${g.vnH}</h2>
       <div class="two">
-        <div><h4>Verbal</h4><ul class="tips"><li>Treat the passage as the only truth. Outside knowledge is a trap.</li><li>Watch quantifiers: “some”, “many”, “most” and “all” are different claims.</li><li>A cause the text does not state, a comparison it does not make, or a hedge (“may”, “possibly”) turned into a certainty makes a statement unsupported.</li><li>Eliminate first; the true statement is usually a plain paraphrase.</li></ul></div>
-        <div><h4>Numerical</h4><ul class="tips"><li>Read the question before the table, then pick out only the cells you need.</li><li>Percentage change divides by the OLD value. Percentage points compare two percentages.</li><li>Check units: thousands, millions, per capita, exchange-rate direction.</li><li>Look at how far apart the options are; if they are far apart, estimate.</li></ul></div>
+        <div><h4>${g.vH}</h4><ul class="tips">${g.vTips.map((t) => `<li>${t}</li>`).join('')}</ul></div>
+        <div><h4>${g.nH}</h4><ul class="tips">${g.nTips.map((t) => `<li>${t}</li>`).join('')}</ul></div>
       </div>
-      <p class="muted small sources">Format details from EPSO’s testing standards and current Notices of Competition (AD5 2026, CAST). All questions on this site are original practice material, written to match the EPSO format; every answer is checked by a script. The official EPSO samples are at <a href="https://selection.eu-careers.europa.eu/en/abstract-testsasten" target="_blank" rel="noopener">abstract</a>, <a href="https://selection.eu-careers.europa.eu/en/numerical-testsasten" target="_blank" rel="noopener">numerical</a> and <a href="https://selection.eu-careers.europa.eu/en/verbal-testsAST" target="_blank" rel="noopener">verbal</a>.</p>
+      <p class="muted small sources">${g.sources}</p>
     </section>`;
     $('#view').onclick = (e) => {
       const t = e.target.closest('button'); if (!t) return;
-      if (t.dataset.step !== undefined) { const k = +t.dataset.step; walkStep = walkStep === k ? -1 : k; const y = window.scrollY; renderGuide(); window.scrollTo(0, y); }
-      else if (t.dataset.try) { const i = E.abstract.findIndex((x) => x.id === t.dataset.try); prac.abstract.i = i; location.hash = 'abstract'; }
-      else if (t.dataset.goto) location.hash = t.dataset.goto;
+      if (t.dataset.step !== undefined) { const k = +t.dataset.step; walkStep[LANG] = walkStep[LANG] === k ? -1 : k; const y = window.scrollY; renderGuide(); window.scrollTo(0, y); }
+      else if (t.dataset.try) { const p = pracOf('abstract'); p.hard = false; p.i = E.abstract.findIndex((x) => x.id === t.dataset.try); location.hash = hashFor('abstract'); }
+      else if (t.dataset.goto) location.hash = hashFor(t.dataset.goto);
     };
     startFlipbooks();
   }
@@ -392,39 +387,140 @@
       if (!boxes.length) return clearInterval(flipTimer);
       flipFrame = (flipFrame + 1) % 5;
       boxes.forEach((b) => {
-        const f = FAMILIES[+b.dataset.flip], q = byId(f.q);
-        b.querySelector('.frame').innerHTML = frame(q.build(q.seq(flipFrame)), { hl: q.rules[f.r].ids });
+        const [qid, r] = FAMILY_Q[+b.dataset.flip], q = byId(qid);
+        b.querySelector('.frame').innerHTML = frame(q.build(q.seq(flipFrame)), { hl: q.rules[r].ids });
         b.querySelector('.fnum').textContent = flipFrame + 1;
       });
     }, 1100);
   }
 
+  /* ---------- Italian-style abstract page (English) ---------- */
+  const IS_TYPE = { sup: 'Superimposition', mat: 'Matrix', odd: 'Odd one out', ana: 'Analogy' };
+  const segFig = (spec) => (spec.s ? [{ id: 'segs', t: 'segs', s: spec.s, mark: spec.mark }] : spec.el);
+  const F = (spec, o = {}) => frame(segFig(spec), o);
+  const overlay = (A, B) => { const all = ITS.union(A, B); return { s: all, mark: Object.fromEntries(all.map((x) => [x, A.includes(x) && B.includes(x) ? 'c' : A.includes(x) ? 'a' : 'b'])) }; };
+  const eqRow = (items, cls = '') => `<div class="eq ${cls}">${items.map((x) => (x.startsWith('<svg') ? `<div class="frame">${x}</div>` : `<span class="op">${x}</span>`)).join('')}</div>`;
+  const KEY = '<p class="key"><span><i class="k-a"></i>only in the first figure</span><span><i class="k-b"></i>only in the second</span><span><i class="k-c"></i>in both</span></p>';
+  const its = { view: 'guide', i: 0, st: {} };
+  const itsSt = (id) => (its.st[id] = its.st[id] || { choice: null, done: false, step: -1 });
+
+  function itsQuestion(q, st) {
+    let stem, stim = '';
+    if (q.type === 'sup') {
+      stem = 'Each row combines the first two figures into the third, using the same rule every time. Which figure completes the last row?';
+      stim = `<div class="eqs">${q.ex.map(([a, b, c]) => eqRow([F({ s: a }), '+', F({ s: b }), '=', F({ s: c })])).join('')}${eqRow([F({ s: q.q[0] }), '+', F({ s: q.q[1] }), '=', qmark()], 'ask')}</div>`;
+    } else if (q.type === 'mat') {
+      stem = 'Which figure completes the grid?';
+      stim = `<div class="mat">${q.grid.map((c) => `<div class="frame">${c ? F(c) : qmark()}</div>`).join('')}</div>`;
+    } else if (q.type === 'odd') stem = 'Which figure is the odd one out?';
+    else {
+      stem = 'The first figure is to the second as the third is to which figure?';
+      stim = `<div class="eqs">${eqRow([F({ s: q.A }), ':', F({ s: q.B }), '=', F({ s: q.C }), ':', qmark()], 'ask')}</div>`;
+    }
+    const elim = q.rules.map((r) => q.options.map((o) => !r.ok(o, q.options)));
+    let explain = '';
+    if (st.done) {
+      let vis = '';
+      if (q.type === 'sup') {
+        const B = ITS.T[q.pre](q.q[1]);
+        vis = `<p class="hint">Rule: <b>${esc(q.ruleName)}</b>. The last row's two figures${q.pre !== 'id' ? ' (second one already turned)' : ''}, laid on top of each other:</p>${eqRow([F({ s: q.q[0] }), '+', F({ s: B }), '→', F(overlay(q.q[0], B))], 'small')}${KEY}`;
+      }
+      if (q.type === 'ana') vis = `<p class="hint">Change from the first to the second figure: <b>${esc(q.tfName)}</b>.</p>`;
+      explain = `<div class="explain">${vis}${ruleSteps(q.rules.map((r) => r.text), elim, st, q.ans).replace(u('hint'), 'Click each rule to cross out the options it rules out.')}</div>`;
+    }
+    return `<div class="qhead"><span class="tag lvl-${q.level}">${q.level}</span><span class="fam">${IS_TYPE[q.type]}</span></div><p class="stem">${stem}</p>${stim}${figOptions(q.options, st, q.ans, (o) => F(o), elim)}${explain}`;
+  }
+
+  function itsGuide() {
+    const A = ['t', 'l', 'd1', 'h'], B = ['t', 'r', 'd2', 'h'];
+    const res = [['Everything adds up', ITS.union(A, B), 'Keep every line from both figures.'], ['Shared lines cancel', ITS.xor(A, B), 'Lines in both disappear; the rest stay. The most common rule.'], ['Only shared lines stay', ITS.inter(A, B), 'Keep only the lines that appear in both.'], ['Second rubs out the first', ITS.minus(A, B), 'Start from the first figure and delete the second figure’s lines.']];
+    const M = [[['t', 'd1'], ['d1', 'b']], [['l', 'h'], ['h', 'n2', 'v']], [['n1', 'n3'], ['n3', 'd2']]];
+    const base = ['t', 'd1', 'n3'];
+    const odd = [[ITS.T.rot90(base), 'turned 90°'], [base, 'original'], [ITS.T.mlr(base), 'mirror image ✗'], [ITS.T.rot180(base), 'turned 180°'], [ITS.T.rot270(base), 'turned 270°']];
+    const anaA = ['t', 'v', 'n2'], anaC = ['l', 'd1'];
+    return `
+      <h2>1 · Superimposition: “adding” figures</h2>
+      <p class="lede">Two figures are laid on top of each other to make a third. The examples tell you what happens to lines that appear in both figures and lines that appear in only one. Find that out, then apply it to the last row.</p>
+      <div class="card itg">
+        ${eqRow([F({ s: A }), '+', F({ s: B }), '→', F(overlay(A, B))])}${KEY}
+        <div class="results">${res.map((r) => `<figure><div class="frame">${F({ s: r[1] })}</div><figcaption><b>${r[0]}</b>${r[2]}</figcaption></figure>`).join('')}</div>
+      </div>
+      <ol class="tips"><li><b>Find a line that is in both figures</b> of an example. Is it in the result? If not, shared lines cancel.</li><li><b>Find a line that is in only one figure.</b> Is it in the result? If not, only shared lines stay (or the second figure is rubbing out the first).</li><li><b>Confirm with the second example</b> before applying the rule. Real tests sometimes mix rules with colour: two blacks make white, black + white makes black, and so on. Treat each colour pair the same way as lines.</li><li><b>Nothing fits?</b> The second figure may be turned or flipped before it is added. Check the examples for that.</li></ol>
+
+      <h2>2 · Matrices (3×3 grids)</h2>
+      <p class="lede">Read the grid row by row, like three short series, and check the columns too. The three most common row rules are below; the example uses the first one.</p>
+      <div class="card itg">
+        <div class="mat">${M.flatMap(([a, b]) => [F({ s: a }), F({ s: b }), F({ s: ITS.xor(a, b) })]).map((x) => `<div class="frame">${x}</div>`).join('')}</div>
+        <p class="hint">Column 1 + column 2 = column 3, and lines in both cancel.</p>
+      </div>
+      <ul class="tips"><li><b>Addition across the row:</b> column 3 is column 1 combined with column 2, using one of the superimposition rules above. Dots or counts can add up too (1 + 2 = 3).</li><li><b>One of each:</b> every row and column contains each shape, colour or count exactly once, like a sudoku. The missing cell is whatever its row and column are still missing.</li><li><b>Progression:</b> something turns, moves or grows step by step along each row.</li></ul>
+
+      <h2>3 · Odd one out</h2>
+      <p class="lede">Four figures share a property; one does not. Run through a checklist rather than staring.</p>
+      <div class="card itg"><div class="results five">${odd.map(([s, cap]) => `<figure><div class="frame">${F({ s })}</div><figcaption>${cap}</figcaption></figure>`).join('')}</div>
+      <p class="hint">A classic trap: four figures are the same shape turned round, one is its mirror image. Turning can never produce a mirror image.</p></div>
+      <ul class="tips"><li>Count: lines, sides, dots, corners. Odd or even?</li><li>Symmetry: left–right, top–bottom, or none.</li><li>Closed shape or open lines?</li><li>Rotations versus mirror images.</li><li>Relations between parts: “sides = dots”, “the dot is inside the shape”.</li></ul>
+
+      <h2>4 · Analogies (A is to B as C is to ?)</h2>
+      <p class="lede">Name exactly what changes from the first figure to the second, then do the same to the third.</p>
+      <div class="card itg">${eqRow([F({ s: anaA }), ':', F({ s: ITS.T.rot90(anaA) }), '=', F({ s: anaC }), ':', F({ s: ITS.T.rot90(anaC) })])}<p class="hint">Here everything is turned 90° clockwise.</p></div>
+      <ul class="tips"><li>Turned (by how much, which way?) or mirrored (which mirror line?)</li><li>Lines added, removed, or inverted (every drawn line disappears, every missing line appears)</li><li>Colours swapped, shapes swapped, size changed</li><li>Two changes at once: check the second change after finding the first</li></ul>
+      <p><button class="btn" data-itsview="practice">Start practising (${ITS.questions.length} questions)</button></p>`;
+  }
+
+  function renderItStyle() {
+    const head = `<div class="hero"><p class="eyebrow">Figure-logic tests used in Italian hiring and concorsi</p><h1>Italian abstract</h1>
+      <p class="lede">Superimposition (“adding” figures), 3×3 matrices, odd one out and analogies. These are common in Italian company aptitude tests and public-sector concorsi.</p></div>
+      <div class="notebox"><b>Does the EU use these?</b> No. EPSO’s abstract reasoning test uses only one format: a series of five figures where you choose the sixth. The skills carry over, though: spotting rules, tracking one element at a time and eliminating options.</div>
+      <div class="filter" role="group" aria-label="Guide or practice"><button class="seg ${its.view === 'guide' ? 'on' : ''}" data-itsview="guide" aria-pressed="${its.view === 'guide'}">Guide</button><button class="seg ${its.view === 'practice' ? 'on' : ''}" data-itsview="practice" aria-pressed="${its.view === 'practice'}">Practice</button></div>`;
+    let body;
+    if (its.view === 'guide') body = itsGuide();
+    else {
+      const Q = ITS.questions, q = Q[its.i], st = itsSt(q.id);
+      const chips = Q.map((x, k) => { const pr = progress['its:' + x.id]; return `<button class="chip ${k === its.i ? 'cur' : ''} ${pr === 1 ? 'ok' : pr === 0 ? 'no' : ''}" data-go="${k}" aria-label="Question ${k + 1}, ${IS_TYPE[x.type]}">${k + 1}</button>`; }).join('');
+      body = `<nav class="chips" aria-label="Questions">${chips}</nav>
+        <div class="card" id="qcard">${itsQuestion(q, st)}</div>
+        ${st.done ? `<p class="result ${st.choice === q.ans ? 'good' : 'bad'}">${st.choice === q.ans ? 'Correct.' : `Not quite. The answer is ${L5[q.ans]}.`}</p>` : ''}
+        <div class="actions"><button class="btn ghost" data-nav="-1" ${its.i === 0 ? 'disabled' : ''}>Previous</button>${st.done ? '' : `<button class="btn" data-check ${st.choice === null ? 'disabled' : ''}>Check answer</button>`}<button class="btn ${st.done ? '' : 'ghost'}" data-nav="1" ${its.i === Q.length - 1 ? 'disabled' : ''}>Next question</button></div>`;
+    }
+    $('#view').innerHTML = `<section class="guide its">${head}${body}</section>`;
+    $('#view').onclick = (e) => {
+      const t = e.target.closest('button'); if (!t) return;
+      const Q = ITS.questions, q = Q[its.i], st = itsSt(q.id);
+      if (t.dataset.itsview) { its.view = t.dataset.itsview; renderItStyle(); if (t.closest('.tips, p')) window.scrollTo(0, 0); }
+      else if (t.dataset.pick !== undefined && !st.done) { st.choice = +t.dataset.pick; renderItStyle(); }
+      else if (t.dataset.check !== undefined) { st.done = true; mark('its:' + q.id, st.choice === q.ans); renderItStyle(); }
+      else if (t.dataset.step !== undefined) { const k = +t.dataset.step; st.step = st.step === k ? -1 : k; renderItStyle(); }
+      else if (t.dataset.nav !== undefined) { its.i = Math.max(0, Math.min(Q.length - 1, its.i + +t.dataset.nav)); renderItStyle(); }
+      else if (t.dataset.go !== undefined) { its.i = +t.dataset.go; renderItStyle(); }
+    };
+  }
+
   /* ---------- pop-up calculator (numerical practice + numerical mock) ---------- */
   const calc = (() => {
     const ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="2.5" width="15" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="7.5" y="5.5" width="9" height="4" rx="1" fill="currentColor"/><g fill="currentColor"><circle cx="8.5" cy="13" r="1.2"/><circle cx="12" cy="13" r="1.2"/><circle cx="15.5" cy="13" r="1.2"/><circle cx="8.5" cy="17" r="1.2"/><circle cx="12" cy="17" r="1.2"/><circle cx="15.5" cy="17" r="1.2"/></g></svg>';
-    // [label, key, class]
     const KEYS = [['C', 'clear', 'fn'], ['(', '(', 'fn'], [')', ')', 'fn'], ['÷', '/', 'op'],
       ['7', '7'], ['8', '8'], ['9', '9'], ['×', '*', 'op'],
       ['4', '4'], ['5', '5'], ['6', '6'], ['−', '-', 'op'],
       ['1', '1'], ['2', '2'], ['3', '3'], ['+', '+', 'op'],
       ['0', '0'], ['.', '.'], ['⌫', 'back', 'fn'], ['=', 'eq', 'eq']];
-    const NAMES = { clear: 'Clear', back: 'Delete last', eq: 'Equals', '/': 'Divide', '*': 'Multiply', '-': 'Minus', '+': 'Plus' };
-
+    const CT = () => STR.CALC[LANG];
     const fab = document.createElement('button');
     fab.type = 'button'; fab.className = 'calc-fab'; fab.hidden = true; fab.innerHTML = ICON;
-    fab.setAttribute('aria-label', 'Calculator'); fab.setAttribute('aria-expanded', 'false'); fab.title = 'Calculator';
+    fab.setAttribute('aria-expanded', 'false');
     const panel = document.createElement('div');
-    panel.className = 'calc'; panel.hidden = true; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', 'Calculator');
-    panel.innerHTML = `<div class="calc-head"><span>Calculator</span><button type="button" class="calc-x" data-close aria-label="Close calculator">×</button></div>
+    panel.className = 'calc'; panel.hidden = true; panel.setAttribute('role', 'dialog');
+    panel.innerHTML = `<div class="calc-head"><span class="calc-title"></span><button type="button" class="calc-x" data-close>×</button></div>
       <div class="calc-screen"><div class="calc-expr"></div><div class="calc-res" aria-live="polite"></div></div>
-      <div class="calc-keys">${KEYS.map(([l, k, c]) => `<button type="button" data-k="${k}" class="${c || ''}" aria-label="${NAMES[k] || l}">${l}</button>`).join('')}</div>`;
+      <div class="calc-keys">${KEYS.map(([l, k, c]) => `<button type="button" data-k="${k}" class="${c || ''}">${l}</button>`).join('')}</div>`;
     document.body.append(fab, panel);
     const exprEl = panel.querySelector('.calc-expr'), resEl = panel.querySelector('.calc-res');
 
     // 'A' stands for the last result, kept at full precision so chained sums do not lose digits
     let expr = '', prev = '', justEq = false, error = '', ans = 0;
-    const pretty = (s) => s.replace(/\*/g, '×').replace(/\//g, '÷').replace(/-/g, '−').replace(/A/g, () => fmt(ans));
+    const dec = (s) => (LANG === 'it' ? s.replace(/\./g, ',') : s);
     const fmt = (v) => (Math.abs(v) >= 1e15 || (v !== 0 && Math.abs(v) < 1e-9) ? v.toExponential(6) : String(parseFloat(v.toPrecision(12))));
+    const pretty = (s) => dec(s.replace(/\*/g, '×').replace(/\//g, '÷').replace(/-/g, '−').replace(/A/g, () => fmt(ans)));
 
     // Small recursive-descent parser: + − × ÷, brackets, unary minus. No eval().
     function evaluate(src) {
@@ -449,8 +545,8 @@
       else if (k === 'eq') {
         if (!expr) return render();
         const v = evaluate(expr);
-        if (!isFinite(v)) error = isNaN(v) ? 'Check the expression' : 'Cannot divide by zero';
-        else { prev = pretty(expr); ans = v; expr = 'A'; justEq = true; }
+        if (!isFinite(v)) error = isNaN(v) ? 'errExpr' : 'errDiv';
+        else { prev = expr; ans = v; expr = 'A'; justEq = true; }
       } else if (/[+\-*/]/.test(k)) {
         justEq = false;
         if (expr === '' || /\($/.test(expr)) { if (k === '-') expr += '-'; }
@@ -466,16 +562,23 @@
       render();
     }
     function render() {
-      if (error) { exprEl.textContent = pretty(expr); resEl.textContent = error; resEl.classList.add('err'); return; }
+      if (error) { exprEl.textContent = pretty(expr); resEl.textContent = CT()[error]; resEl.classList.add('err'); return; }
       resEl.classList.remove('err');
-      if (justEq) { exprEl.textContent = prev + ' ='; resEl.textContent = fmt(ans); return; }
+      if (justEq) { exprEl.textContent = pretty(prev) + ' ='; resEl.textContent = dec(fmt(ans)); return; }
       resEl.textContent = expr ? pretty(expr) : '0';
       const v = /[\dA][+\-*/(]|\)/.test(expr) ? evaluate(expr) : NaN;
-      exprEl.textContent = isFinite(v) ? '= ' + fmt(v) : '';
+      exprEl.textContent = isFinite(v) ? '= ' + dec(fmt(v)) : '';
     }
-    function toggle(open) {
-      panel.hidden = !open; fab.classList.toggle('on', open); fab.setAttribute('aria-expanded', String(open));
+    function setLang() {
+      const c = CT();
+      panel.querySelector('.calc-title').textContent = c.title;
+      panel.setAttribute('aria-label', c.title);
+      fab.setAttribute('aria-label', c.title); fab.title = c.title;
+      panel.querySelector('[data-close]').setAttribute('aria-label', c.close);
+      panel.querySelectorAll('[data-k]').forEach((b) => { const k = b.dataset.k; b.setAttribute('aria-label', c.names[k] || b.textContent); if (k === '.') b.textContent = LANG === 'it' ? ',' : '.'; });
+      render();
     }
+    function toggle(open) { panel.hidden = !open; fab.classList.toggle('on', open); fab.setAttribute('aria-expanded', String(open)); }
 
     fab.addEventListener('click', () => toggle(panel.hidden));
     panel.addEventListener('mousedown', (e) => { if (e.target.closest('.calc-keys button')) e.preventDefault(); }); // keep focus on the question
@@ -492,7 +595,6 @@
       e.preventDefault();
       if (k === 'close') toggle(false); else press(k);
     });
-
     // drag by the title bar so the calculator never has to cover the data
     const head = panel.querySelector('.calc-head');
     head.addEventListener('pointerdown', (e) => {
@@ -507,29 +609,42 @@
       const up = () => { head.removeEventListener('pointermove', move); head.removeEventListener('pointerup', up); head.removeEventListener('pointercancel', up); };
       head.addEventListener('pointermove', move); head.addEventListener('pointerup', up); head.addEventListener('pointercancel', up);
     });
-
-    render();
+    setLang();
     return {
       show(on) { fab.hidden = !on; document.body.classList.toggle('has-calc', on); if (!on) toggle(false); },
-      evaluate,
+      setLang, evaluate,
     };
   })();
   window.EPSOCalc = calc;
+  let current = ROUTES.guide;
   function updateCalc() {
-    const h = location.hash, v = $('#view');
-    calc.show(h === '#numerical' || (h === '#exam' && !!exam && exam.kind === 'numerical' && !!v.querySelector('.exam, .review')));
+    const x = ex(), v = $('#view');
+    calc.show((current.view === 'practice' && current.kind === 'numerical') || (current.view === 'exam' && !!x && x.kind === 'numerical' && !!v.querySelector('.exam, .review')));
   }
   new MutationObserver(updateCalc).observe($('#view'), { childList: true });
 
   /* ---------- router ---------- */
   function route() {
     const h = (location.hash || '#guide').slice(1);
-    if (h !== 'exam') clearInterval(timerId);
-    if (h !== 'guide') clearInterval(flipTimer);
-    document.querySelectorAll('.tabs a').forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + h));
-    if (h === 'abstract' || h === 'numerical' || h === 'verbal') renderPractice(h);
-    else if (h === 'exam') { if (exam && !exam.over) renderExam(); else renderExamPicker(); }
+    current = ROUTES[h] || ROUTES.guide;
+    const changedLang = LANG !== current.lang;
+    LANG = current.lang;
+    document.documentElement.lang = LANG;
+    if (changedLang) calc.setLang();
+    clearInterval(timerId);
+    if (current.view !== 'guide') clearInterval(flipTimer);
+    const inIt = LANG === 'it';
+    document.querySelectorAll('.tabs a').forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + h || (inIt && a.classList.contains('tab-it'))));
+    $('#itnav').hidden = !inIt;
+    document.querySelectorAll('#itnav a').forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + h));
+    $('#foot').textContent = u('footer');
+    if (current.view === 'practice') renderPractice(current.kind);
+    else if (current.view === 'exam') {
+      const x = ex();
+      if (x && !x.over) { renderExam(); timerId = setInterval(tick, 1000); } else renderExamPicker();
+    } else if (current.view === 'its') renderItStyle();
     else renderGuide();
+    updateCalc();
   }
   window.addEventListener('hashchange', () => { route(); window.scrollTo(0, 0); });
   route();

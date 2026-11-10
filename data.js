@@ -951,7 +951,7 @@
   });
   verbal.forEach((q) => {
     const order = seededOrder(q.id, 4);
-    q.opts = order.map((k) => q.opts[k]);
+    q.opts = order.map((k) => [q.opts[k][0], q.opts[k][1], q.opts[k][2], k]); // keep the original position so translations line up
     q.ans = q.opts.findIndex((o) => o[1] === 'T');
   });
 
