@@ -3,11 +3,13 @@
   'use strict';
   const UI = {
     en: {
-      names: { abstract: 'Abstract reasoning', numerical: 'Numerical reasoning', verbal: 'Verbal reasoning' },
+      names: { abstract: 'Abstract reasoning', numerical: 'Numerical reasoning', verbal: 'Verbal reasoning', eu: 'EU knowledge', digital: 'Digital skills' },
       intro: {
         abstract: 'Five frames follow hidden rules. Find the rules, then pick the frame that comes sixth. After you answer, step through the rules to see which options each one rules out.',
         numerical: 'Read the question first, then find only the figures you need. The real test has an on-screen calculator, so use the calculator button at the bottom right here too. Watch units and percentage points.',
         verbal: 'Judge each statement only against the passage. Exactly one is correct; the others are false or cannot be confirmed from the text.',
+        eu: 'Part 2 of the competition, taken in your Language 2: 30 questions in 40 minutes, pass mark 15/30. Facts are as of 11 November 2026; the companion PDF explains each topic.',
+        digital: 'Part 2 of the competition, taken in your Language 2: 40 questions in 30 minutes, pass mark 20/40. Questions follow the five DigComp 2.2 areas named in the notice.',
       },
       score: (r, d) => `<b>${r}</b>/<span>${d}</span> correct`,
       nq: (n) => `${n} questions`,
@@ -28,7 +30,7 @@
       mockTitle: 'Timed mock test',
       mockLede: 'Same length and time limit as the EPSO reasoning tests. No feedback until you submit. You can move between questions and flag ones to revisit.',
       pickMeta: (n, m) => `${n} questions · ${m} minutes`,
-      passV: 'Pass mark usually 10/20', passNA: 'Combined pass mark with the other test usually 10/20',
+      passV: 'Pass mark usually 10/20', passNA: 'Combined pass mark with the other test usually 10/20', passEU: 'Part 2 · pass mark 15/30', passDS: 'Part 2 · pass mark 20/40',
       mockNote: 'The abstract and numerical mocks draw a random set from the question bank each time. Always check the pass marks in your own Notice of Competition.',
       examBar: (name, i, n) => `${name} · question ${i} of ${n}`,
       flag: (on) => (on ? 'Unflag' : 'Flag for review'), nextShort: 'Next',
@@ -42,7 +44,7 @@
       footer: 'Original practice material in the EPSO format. Not affiliated with EPSO. Progress is saved only in this browser.',
     },
     it: {
-      names: { abstract: 'Ragionamento astratto', numerical: 'Ragionamento numerico', verbal: 'Ragionamento verbale' },
+      names: { abstract: 'Ragionamento astratto', numerical: 'Ragionamento numerico', verbal: 'Ragionamento verbale', eu: 'Conoscenza dell’UE', digital: 'Competenze digitali' },
       intro: {
         abstract: 'Cinque figure seguono regole nascoste. Trova le regole, poi scegli la figura che viene sesta. Dopo aver risposto, scorri le regole per vedere quali opzioni esclude ciascuna.',
         numerical: 'Leggi prima la domanda, poi cerca solo i dati che ti servono. Nel test vero c’è una calcolatrice sullo schermo: usa il pulsante della calcolatrice in basso a destra anche qui. Attenzione alle unità di misura e ai punti percentuali.',
@@ -67,7 +69,7 @@
       mockTitle: 'Simulazione a tempo',
       mockLede: 'Stessa durata e stesso numero di domande dei test di ragionamento EPSO. Nessun riscontro fino alla consegna. Puoi spostarti tra le domande e segnare quelle da rivedere.',
       pickMeta: (n, m) => `${n} domande · ${m} minuti`,
-      passV: 'Soglia di solito 10/20', passNA: 'Soglia di solito 10/20, sommata con l’altro test',
+      passV: 'Soglia di solito 10/20', passNA: 'Soglia di solito 10/20, sommata con l’altro test', passEU: 'Parte 2 · soglia 15/30', passDS: 'Parte 2 · soglia 20/40',
       mockNote: 'Le simulazioni di ragionamento astratto e numerico pescano ogni volta un gruppo casuale di domande. Verifica sempre le soglie nel tuo bando di concorso.',
       examBar: (name, i, n) => `${name} · domanda ${i} di ${n}`,
       flag: (on) => (on ? 'Togli il segno' : 'Segna da rivedere'), nextShort: 'Avanti',
@@ -87,9 +89,9 @@
     en: {
       eyebrow: 'EPSO graduate reasoning tests', h1: 'Learn the rules, then beat the clock',
       lede: 'Practice for verbal, numerical and abstract reasoning in the EPSO format, with a step-by-step visual method for abstract questions.',
-      fmt: [['Verbal', '20 questions', '35 min', '≈ 1 min 45 s each · usually pass 10/20', 'verbal'], ['Numerical', '10 questions', '20 min', '≈ 2 min each · on-screen calculator', 'numerical'], ['Abstract', '10 questions', '10 min', '≈ 1 min each · 5 frames, 5 options', 'abstract']],
+      fmt: [['Verbal', '20 questions', '35 min', '≈ 1 min 45 s each · usually pass 10/20', 'verbal'], ['Numerical', '10 questions', '20 min', '≈ 2 min each · on-screen calculator', 'numerical'], ['Abstract', '10 questions', '10 min', '≈ 1 min each · 5 frames, 5 options', 'abstract'], ['EU knowledge', '30 questions', '40 min', 'Part 2 · Language 2 · pass 15/30', 'eu-knowledge'], ['Digital skills', '40 questions', '30 min', 'Part 2 · Language 2 · pass 20/40', 'digital']],
       practise: 'Practise',
-      fmtNote: 'Numerical and abstract usually share a combined pass mark (often 10/20). No marks are lost for wrong answers, so never leave a blank. Formats vary: check your Notice of Competition.',
+      fmtNote: 'Part 1 (reasoning) is taken in your Language 1. Numerical and abstract share a combined pass mark of 10/20. Part 2 (EU knowledge, digital skills and a written essay) is taken in your Language 2 and expected in 2027. The ranking uses verbal reasoning, EU knowledge and digital skills, plus the essay at the final stage. No marks are lost for wrong answers, so never leave a blank.',
       anatomyH: 'How an abstract question works',
       anatomyP: 'You see five frames in a row. Each frame is built from a few independent “building blocks”, and each block follows its own rule. Your job is to work out frame 6. Usually two or three rules are in play at once, and each wrong option breaks at least one of them.',
       methodH: 'The four-step method',
@@ -121,9 +123,9 @@
     it: {
       eyebrow: 'Test di ragionamento EPSO per laureati', h1: 'Impara le regole, poi batti il cronometro',
       lede: 'Esercitazioni di ragionamento verbale, numerico e astratto nel formato EPSO, con un metodo visivo passo per passo per le domande di ragionamento astratto.',
-      fmt: [['Verbale', '20 domande', '35 min', '≈ 1 min 45 s ciascuna · soglia di solito 10/20', 'verbal'], ['Numerico', '10 domande', '20 min', '≈ 2 min ciascuna · calcolatrice sullo schermo', 'numerical'], ['Astratto', '10 domande', '10 min', '≈ 1 min ciascuna · 5 figure, 5 opzioni', 'abstract']],
+      fmt: [['Verbale', '20 domande', '35 min', '≈ 1 min 45 s ciascuna · soglia di solito 10/20', 'verbal'], ['Numerico', '10 domande', '20 min', '≈ 2 min ciascuna · calcolatrice sullo schermo', 'numerical'], ['Astratto', '10 domande', '10 min', '≈ 1 min ciascuna · 5 figure, 5 opzioni', 'abstract'], ['Conoscenza UE', '30 domande', '40 min', 'Parte 2 · lingua 2 · soglia 15/30 · in inglese', 'eu-knowledge'], ['Competenze digitali', '40 domande', '30 min', 'Parte 2 · lingua 2 · soglia 20/40 · in inglese', 'digital']],
       practise: 'Esercitati',
-      fmtNote: 'I test di ragionamento si svolgono nella lingua 1 scelta al momento della candidatura, che può essere l’italiano. Numerico e astratto di solito hanno una soglia combinata (spesso 10/20). Le risposte sbagliate non tolgono punti: non lasciare mai una risposta in bianco. I formati possono variare: controlla il tuo bando di concorso.',
+      fmtNote: 'I test di ragionamento (Parte 1) si svolgono nella lingua 1, che può essere l’italiano. Numerico e astratto hanno una soglia combinata di 10/20. La Parte 2 (conoscenza dell’UE, competenze digitali e un testo scritto) si svolge nella lingua 2, diversa dalla lingua 1: per questo quelle esercitazioni sono in inglese. Le risposte sbagliate non tolgono punti: non lasciare mai una risposta in bianco. I formati possono variare: controlla il tuo bando di concorso.',
       anatomyH: 'Come funziona una domanda di ragionamento astratto',
       anatomyP: 'Vedi cinque figure in fila. Ogni figura è composta da pochi «elementi» indipendenti e ogni elemento segue una propria regola. Devi ricavare la figura 6. Di solito agiscono due o tre regole insieme e ogni opzione sbagliata ne viola almeno una.',
       methodH: 'Il metodo in quattro passi',

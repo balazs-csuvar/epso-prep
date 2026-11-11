@@ -1,7 +1,7 @@
 /* EPSO Reasoning Trainer — rendering and interaction (English and Italian) */
 (function () {
   'use strict';
-  const E = window.EPSO, ITS = window.EPSO_IT, TX = window.EPSO_TX_IT, NI = window.EPSO_NI, STR = window.EPSO_UI;
+  const E = window.EPSO, ITS = window.EPSO_IT, TX = window.EPSO_TX_IT, NI = window.EPSO_NI, P2 = window.EPSO_P2, STR = window.EPSO_UI;
   const $ = (s, r = document) => r.querySelector(s);
   const L5 = 'ABCDE';
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -17,7 +17,8 @@
   // Italian numerical and verbal questions are written in Italian (it_native.js); abstract figures are shared
   const passTx = (k) => (LANG === 'it' ? NI.passages[k] : E.passages[k]);
   const dsOf = (k) => (LANG === 'it' ? NI.datasets[k] : E.datasets[k]);
-  const bankOf = (kind) => (LANG === 'it' && kind !== 'abstract' ? NI[kind] : E[kind]);
+  const bankOf = (kind) => (kind === 'eu' || kind === 'digital' ? P2[kind] : LANG === 'it' && kind !== 'abstract' ? NI[kind] : E[kind]);
+  const lettersFor = (kind) => (kind === 'abstract' || kind === 'numerical' ? L5 : 'ABCD');
 
   /* ---------- storage (optional) ---------- */
   const store = {
@@ -184,6 +185,9 @@
         ${abstractOptions(q, st)}
         ${st.done && st.showExplain ? abstractExplain(q, st) : ''}`;
     }
+    if (kind === 'eu' || kind === 'digital') {
+      return `<div class="qhead"><span class="fam">${esc(q.topic)}</span></div><p class="stem">${esc(q.q)}</p>${textOptions(q.options, { ...st, ans: q.ans }, 'ABCD')}${st.done && st.showExplain ? `<div class="explain"><p>${esc(q.explain)}</p></div>` : ''}`;
+    }
     if (kind === 'numerical') {
       return `${levelTag(q)}${dataView(q.ds)}<p class="stem">${esc(q.q)}</p>${textOptions(q.options, { ...st, ans: q.ans }, L5)}${st.done && st.showExplain ? `<div class="explain"><p>${esc(q.explain)}</p></div>` : ''}`;
     }
@@ -196,12 +200,13 @@
     guide: { lang: 'en', view: 'guide' }, abstract: { lang: 'en', view: 'practice', kind: 'abstract' },
     numerical: { lang: 'en', view: 'practice', kind: 'numerical' }, verbal: { lang: 'en', view: 'practice', kind: 'verbal' },
     exam: { lang: 'en', view: 'exam' }, 'italian-abstract': { lang: 'en', view: 'its' },
+    'eu-knowledge': { lang: 'en', view: 'practice', kind: 'eu' }, digital: { lang: 'en', view: 'practice', kind: 'digital' },
     'it-guida': { lang: 'it', view: 'guide' }, 'it-astratto': { lang: 'it', view: 'practice', kind: 'abstract' },
     'it-numerico': { lang: 'it', view: 'practice', kind: 'numerical' }, 'it-verbale': { lang: 'it', view: 'practice', kind: 'verbal' },
     'it-simulazione': { lang: 'it', view: 'exam' },
   };
   const HASH_IT = { guide: 'it-guida', exam: 'it-simulazione', abstract: 'it-astratto', numerical: 'it-numerico', verbal: 'it-verbale' };
-  const hashFor = (k) => (LANG === 'it' ? HASH_IT[k] : k);
+  const hashFor = (k) => (LANG === 'it' ? HASH_IT[k] || k : k);
 
   /* ---------- practice mode ---------- */
   const prac = { en: {}, it: {} };
@@ -219,10 +224,10 @@
     const chips = bank.map((x, k) => { const pr = progress[pid(x.id)]; return `<button class="chip ${k === cur.i ? 'cur' : ''} ${pr === 1 ? 'ok' : pr === 0 ? 'no' : ''}" data-go="${k}" aria-label="${u('qAria', all.indexOf(x) + 1, x.level === 'Hard')}">${all.indexOf(x) + 1}${x.level === 'Hard' && !cur.hard ? '<i class="hd" aria-hidden="true"></i>' : ''}</button>`; }).join('');
     $('#view').innerHTML = `<section class="practice">
       <div class="phead"><div><h2>${NAME}</h2><p class="lede">${u('intro')[kind]}</p></div><div class="score">${u('score', right, done)}<br><span class="muted">${u('nq', bank.length)}</span></div></div>
-      <div class="filter" role="group" aria-label="${u('filterAria')}"><button class="seg ${cur.hard ? '' : 'on'}" data-hard="0" aria-pressed="${!cur.hard}">${u('all', all.length)}</button><button class="seg ${cur.hard ? 'on' : ''}" data-hard="1" aria-pressed="${cur.hard}">${u('hardOnly', nHard)}</button></div>
+      <div class="filter" role="group" aria-label="${u('filterAria')}" ${nHard ? '' : 'hidden'}><button class="seg ${cur.hard ? '' : 'on'}" data-hard="0" aria-pressed="${!cur.hard}">${u('all', all.length)}</button><button class="seg ${cur.hard ? 'on' : ''}" data-hard="1" aria-pressed="${cur.hard}">${u('hardOnly', nHard)}</button></div>
       <nav class="chips" aria-label="${u('filterAria')}">${chips}</nav>
       <div class="card" id="qcard">${renderQuestion(kind, q, st)}</div>
-      ${st.done ? `<p class="result ${st.choice === q.ans ? 'good' : 'bad'}">${st.choice === q.ans ? u('correct') : u('wrong', (kind === 'verbal' ? 'ABCD' : L5)[q.ans])}</p>` : ''}
+      ${st.done ? `<p class="result ${st.choice === q.ans ? 'good' : 'bad'}">${st.choice === q.ans ? u('correct') : u('wrong', lettersFor(kind)[q.ans])}</p>` : ''}
       <div class="actions">
         <button class="btn ghost" data-nav="-1" ${cur.i === 0 ? 'disabled' : ''}>${u('prev')}</button>
         ${st.done ? (kind === 'abstract' ? `<button class="btn ghost" data-reveal>${u('reveal', st.reveal)}</button>` : '') : `<button class="btn" data-check ${st.choice === null ? 'disabled' : ''}>${u('check')}</button>`}
@@ -245,7 +250,8 @@
   }
 
   /* ---------- mock exam ---------- */
-  const EXAM = { verbal: { n: 20, min: 35 }, numerical: { n: 10, min: 20 }, abstract: { n: 10, min: 10 } };
+  const EXAM = { verbal: { n: 20, min: 35 }, numerical: { n: 10, min: 20 }, abstract: { n: 10, min: 10 }, eu: { n: 30, min: 40 }, digital: { n: 40, min: 30 } };
+  const PASS = { verbal: 'passV', numerical: 'passNA', abstract: 'passNA', eu: 'passEU', digital: 'passDS' };
   const exams = { en: null, it: null };
   let timerId = null;
   const ex = () => exams[LANG];
@@ -254,7 +260,7 @@
   function renderExamPicker() {
     clearInterval(timerId);
     $('#view').innerHTML = `<section class="practice"><div class="phead"><div><h2>${u('mockTitle')}</h2><p class="lede">${u('mockLede')}</p></div></div>
-      <div class="pick">${Object.entries(EXAM).map(([k, v]) => `<button class="pickcard" data-start="${k}"><span class="pk">${u('names')[k]}</span><span class="pm">${u('pickMeta', v.n, v.min)}</span><span class="pp">${k === 'verbal' ? u('passV') : u('passNA')}</span></button>`).join('')}</div>
+      <div class="pick">${Object.entries(EXAM).filter(([k]) => LANG === 'en' || !P2[k]).map(([k, v]) => `<button class="pickcard" data-start="${k}"><span class="pk">${u('names')[k]}</span><span class="pm">${u('pickMeta', v.n, v.min)}</span><span class="pp">${u(PASS[k])}</span></button>`).join('')}</div>
       <p class="muted small">${u('mockNote')}</p></section>`;
     $('#view').onclick = (e) => { const t = e.target.closest('[data-start]'); if (t) startExam(t.dataset.start); };
   }
@@ -306,7 +312,7 @@
     x.qs.forEach((q) => { if (x.ans[q.id] !== undefined) mark(pid(q.id), x.ans[q.id] === q.ans); });
     const total = EXAM[x.kind].min * 60000, used = Math.min(total, total - Math.max(0, x.end - Date.now()));
     const half = Math.ceil(x.qs.length / 2);
-    const letters = x.kind === 'verbal' ? 'ABCD' : L5;
+    const letters = lettersFor(x.kind);
     $('#view').innerHTML = `<section class="practice"><div class="phead"><div><h2>${u('result', score, x.qs.length)}</h2><p class="lede">${u('used', NAME, fmtTime(used))} ${score >= half ? u('passOk') : u('passNo')}</p></div></div>
       <ol class="review">${x.qs.map((q, k) => { const a = x.ans[q.id]; const ok = a === q.ans; return `<li class="${ok ? 'ok' : 'no'}"><button class="rv" data-rv="${k}"><span>${u('rvQ', k + 1)}</span><span>${a === undefined ? u('noAns') : u('you', letters[a])} · ${u('corr', letters[q.ans])}</span><span class="rvs">${ok ? u('rvOk') : u('rvNo')}</span></button></li>`; }).join('')}</ol>
       <div id="rvbox"></div>

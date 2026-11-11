@@ -140,3 +140,17 @@ for (const q of NI.verbal) {
 }
 console.log(niErr ? `\n${niErr} Italian-section problem(s)` : `All Italian-section checks passed (${NI.numerical.length} numerical, ${NI.verbal.length} verbal, ${D.abstract.length} abstract explanations)`);
 if (niErr) process.exitCode = 1;
+
+/* ---------- Part 2: EU knowledge and digital skills ---------- */
+const P2 = require('../part2.js');
+let p2Err = 0;
+console.log('\nPART 2');
+for (const [kind, bank] of Object.entries(P2)) {
+  for (const q of bank) {
+    if (q.options.length !== 4 || new Set(q.options).size !== 4 || q.options[q.ans] !== q.right || !q.explain || !q.q) { p2Err++; console.log(`  ✗ ${q.id}`); }
+  }
+  const spread = bank.reduce((a, q) => (a[q.ans]++, a), [0, 0, 0, 0]);
+  console.log(`  ${kind}: ${bank.length} questions, answer spread ${spread.join(' ')}`);
+}
+console.log(p2Err ? `${p2Err} Part 2 problem(s)` : 'All Part 2 checks passed');
+if (p2Err) process.exitCode = 1;
